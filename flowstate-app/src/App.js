@@ -246,18 +246,9 @@ function formatEntry(type, form) {
   return parts.join(' · ');
 }
 
-function TodoList({ title, type, items, onAdd }) {
-  const [checked, setChecked] = useState(new Set());
+function TodoList({ title, type, items, checked, onToggle, onAdd }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({});
-
-  function toggleItem(i) {
-    setChecked(prev => {
-      const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
-  }
 
   function handleSubmit() {
     if (!form.name?.trim()) return;
@@ -278,7 +269,7 @@ function TodoList({ title, type, items, onAdd }) {
         {items.map((item, i) => {
           const done = checked.has(i);
           return (
-            <li key={i} className={`todo-item${done ? ' done' : ''}`} onClick={() => toggleItem(i)}>
+            <li key={i} className={`todo-item${done ? ' done' : ''}`} onClick={() => onToggle(i)}>
               <span className={`todo-checkbox${done ? ' checked' : ''}`} />
               <span>{item}</span>
             </li>
@@ -435,7 +426,35 @@ function App() {
   const [token, setToken] = useState(null);
   const [meetings, setMeetings] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [checkedMeetings, setCheckedMeetings] = useState(new Set());
+  const [checkedTasks, setCheckedTasks] = useState(new Set());
   const [showSettings, setShowSettings] = useState(false);
+
+  function toggle(setChecked) {
+    return i => setChecked(prev => {
+      const next = new Set(prev);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  }
+
+  async function handleSubmit() {
+    const payload = {
+      submittedAt: new Date().toISOString(),
+      meetings: meetings.map((text, i) => ({ text, done: checkedMeetings.has(i) })),
+      tasks: tasks.map((text, i) => ({ text, done: checkedTasks.has(i) })),
+      preferences: prefs,
+    };
+    try {
+      await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.error('Submit failed', err);
+    }
+  }
   const [prefs, setPrefs] = useState({
     breakTime: 15,
     contextSwitch: 30,
@@ -537,17 +556,21 @@ function App() {
                 ? ['No meetings today']
                 : ['Sign in to load meetings']
             }
+            checked={checkedMeetings}
+            onToggle={toggle(setCheckedMeetings)}
             onAdd={item => setMeetings(prev => [...prev, item])}
           />
           <TodoList
             type="work"
             title="Deep Work"
             items={tasks}
+            checked={checkedTasks}
+            onToggle={toggle(setCheckedTasks)}
             onAdd={item => setTasks(prev => [...prev, item])}
           />
           <div className="sidebar-footer">
             <button className="prefs-btn" onClick={() => setShowSettings(true)}>Preferences</button>
-            <button className="submit-btn">Submit</button>
+            <button className="submit-btn" onClick={handleSubmit}>Submit</button>
           </div>
         </aside>
       </main>
