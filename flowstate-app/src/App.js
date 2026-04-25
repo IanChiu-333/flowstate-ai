@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import './App.css';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
@@ -21,7 +22,6 @@ function getTokenFromHash() {
   const params = new URLSearchParams(window.location.hash.substring(1));
   return params.get('access_token');
 }
-import './App.css';
 
 const HOUR_HEIGHT = 64;
 const START_HOUR = 0;
