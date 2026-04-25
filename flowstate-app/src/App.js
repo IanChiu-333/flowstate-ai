@@ -189,35 +189,102 @@ function DayCalendar({ token, onTodayEvents }) {
   );
 }
 
-function TodoList({ title, items, onAdd }) {
-  const [input, setInput] = useState('');
+const FIELDS = {
+  meeting: [
+    { key: 'name',      label: 'Name',          type: 'text', placeholder: 'Meeting name', required: true },
+    { key: 'startTime', label: 'Start time',     type: 'time' },
+    { key: 'endTime',   label: 'End time',       type: 'time' },
+    { key: 'location',  label: 'Location',       type: 'text', placeholder: 'Room or link' },
+  ],
+  work: [
+    { key: 'name',     label: 'Name',          type: 'text', placeholder: 'Task name', required: true },
+    { key: 'deadline', label: 'Deadline',      type: 'time' },
+    { key: 'estimate', label: 'Time estimate', type: 'text', placeholder: 'e.g. 2h 30m' },
+  ],
+};
+
+function formatTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+function formatEntry(type, form) {
+  const parts = [form.name];
+  if (type === 'meeting') {
+    const times = [formatTime(form.startTime), formatTime(form.endTime)].filter(Boolean).join(' – ');
+    if (times) parts.push(times);
+    if (form.location?.trim()) parts.push(form.location.trim());
+  } else {
+    if (form.deadline) parts.push(`due ${formatTime(form.deadline)}`);
+    if (form.estimate?.trim()) parts.push(form.estimate.trim());
+  }
+  return parts.join(' · ');
+}
+
+function TodoList({ title, type, items, onAdd }) {
+  const [checked, setChecked] = useState(new Set());
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({});
+
+  function toggleItem(i) {
+    setChecked(prev => {
+      const next = new Set(prev);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  }
+
+  function handleSubmit() {
+    if (!form.name?.trim()) return;
+    onAdd(formatEntry(type, form));
+    setForm({});
+    setShowForm(false);
+  }
 
   function handleKeyDown(e) {
-    if (e.key === 'Enter' && input.trim()) {
-      onAdd(input.trim());
-      setInput('');
-    }
+    if (e.key === 'Enter') handleSubmit();
+    if (e.key === 'Escape') setShowForm(false);
   }
 
   return (
     <div className="todo-panel">
       <h2 className="todo-title">{title}</h2>
       <ul className="todo-list">
-        {items.map((item, i) => (
-          <li key={i} className="todo-item">
-            <span className="todo-checkbox" />
-            <span>{item}</span>
-          </li>
-        ))}
+        {items.map((item, i) => {
+          const done = checked.has(i);
+          return (
+            <li key={i} className={`todo-item${done ? ' done' : ''}`} onClick={() => toggleItem(i)}>
+              <span className={`todo-checkbox${done ? ' checked' : ''}`} />
+              <span>{item}</span>
+            </li>
+          );
+        })}
       </ul>
-      <input
-        className="todo-input"
-        type="text"
-        placeholder="Add item…"
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={handleKeyDown}
-      />
+
+      {showForm ? (
+        <div className="todo-form" onKeyDown={handleKeyDown}>
+          {FIELDS[type].map(f => (
+            <div key={f.key} className="form-row">
+              <label className="form-label">{f.label}</label>
+              <input
+                className="form-input"
+                type={f.type}
+                placeholder={f.placeholder || ''}
+                value={form[f.key] || ''}
+                autoFocus={f.key === 'name'}
+                onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+              />
+            </div>
+          ))}
+          <div className="form-actions">
+            <button className="form-btn-add" onClick={handleSubmit}>Add</button>
+            <button className="form-btn-cancel" onClick={() => { setShowForm(false); setForm({}); }}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button className="todo-add-btn" onClick={() => setShowForm(true)}>+ Add item</button>
+      )}
     </div>
   );
 }
@@ -225,26 +292,51 @@ function TodoList({ title, items, onAdd }) {
 function App() {
   const [token, setToken] = useState(null);
   const [meetings, setMeetings] = useState([]);
-  const [tasks, setTasks] = useState([
-    'Finish Q2 report draft',
-    'Review pull requests',
-    'Update project documentation',
-    'Respond to stakeholder emails',
-  ]);
+  const [tasks, setTasks] = useState([]);
 
   const login = useGoogleLogin({
-    scope: 'https://www.googleapis.com/auth/calendar.readonly',
+    scope: [
+      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/tasks.readonly',
+    ].join(' '),
     onSuccess: ({ access_token }) => setToken(access_token),
     onError: () => console.error('Google login failed'),
   });
 
+  useEffect(() => {
+    if (!token) return;
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    fetch(
+      `https://tasks.googleapis.com/tasks/v1/lists/@default/tasks?` +
+        new URLSearchParams({
+          showCompleted: false,
+          showHidden: false,
+          dueMin: start.toISOString(),
+          dueMax: end.toISOString(),
+        }),
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+      .then(r => r.json())
+      .then(data => {
+        const items = (data.items || []).map(t => t.title).filter(Boolean);
+        setTasks(items);
+      })
+      .catch(err => console.error('Tasks fetch failed', err));
+  }, [token]);
+
+  // Only calendar events (eventType 'default') go in the Meetings list
   function handleTodayEvents(items) {
-    const formatted = items.map(e => {
-      const time = e.start.dateTime
-        ? new Date(e.start.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : 'All day';
-      return `${e.summary} — ${time}`;
-    });
+    const formatted = items
+      .filter(e => !e.eventType || e.eventType === 'default')
+      .map(e => {
+        const time = e.start.dateTime
+          ? new Date(e.start.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : 'All day';
+        return `${e.summary} — ${time}`;
+      });
     setMeetings(formatted);
   }
 
@@ -255,7 +347,7 @@ function App() {
         <span className="app-tagline">Personal Secretary</span>
         <div className="top-bar-actions">
           {token ? (
-            <button className="auth-btn signout" onClick={() => { setToken(null); setMeetings([]); }}>
+            <button className="auth-btn signout" onClick={() => { setToken(null); setMeetings([]); setTasks([]); }}>
               Sign out
             </button>
           ) : (
@@ -280,6 +372,7 @@ function App() {
 
         <aside className="sidebar">
           <TodoList
+            type="meeting"
             title="Meetings"
             items={
               meetings.length > 0
@@ -291,6 +384,7 @@ function App() {
             onAdd={item => setMeetings(prev => [...prev, item])}
           />
           <TodoList
+            type="work"
             title="Deep Work"
             items={tasks}
             onAdd={item => setTasks(prev => [...prev, item])}
