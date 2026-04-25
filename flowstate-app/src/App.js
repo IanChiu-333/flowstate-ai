@@ -1,71 +1,44 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import './App.css';
 
-const SCOPES = [
-  'https://www.googleapis.com/auth/calendar.readonly',
-  'https://www.googleapis.com/auth/tasks.readonly',
-].join(' ');
-
-function buildAuthUrl() {
-  const params = new URLSearchParams({
-    client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-    redirect_uri: window.location.origin,
-    response_type: 'token',
-    scope: SCOPES,
-    include_granted_scopes: 'true',
-    prompt: 'select_account',
-  });
-  return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
-}
-
-function getTokenFromHash() {
-  const params = new URLSearchParams(window.location.hash.substring(1));
-  return params.get('access_token');
-}
-
+const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const HOUR_HEIGHT = 64;
 const START_HOUR = 0;
 const END_HOUR = 24;
 
-function fetchDayEvents(token, date) {
-  const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(date);
-  end.setHours(23, 59, 59, 999);
-  return fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
-      new URLSearchParams({
-        timeMin: start.toISOString(),
-        timeMax: end.toISOString(),
-        singleEvents: true,
-        orderBy: 'startTime',
-        maxResults: 50,
-      }),
-    { headers: { Authorization: `Bearer ${token}` } }
-  ).then(res => res.json());
+function api(path, options = {}, jwt = null) {
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (jwt) headers.Authorization = `Bearer ${jwt}`;
+  return fetch(`${BACKEND}${path}`, { ...options, headers });
 }
 
-// Assigns each overlapping event a column so they sit side-by-side
+function parseEstimate(str) {
+  if (!str) return null;
+  let mins = 0;
+  const h = str.match(/(\d+)\s*h/i);
+  const m = str.match(/(\d+)\s*m/i);
+  if (h) mins += parseInt(h[1]) * 60;
+  if (m) mins += parseInt(m[1]);
+  return mins > 0 ? mins : null;
+}
+
 function layoutTimedEvents(events) {
-  const sorted = [...events].sort(
-    (a, b) => new Date(a.start.dateTime) - new Date(b.start.dateTime)
-  );
-  const columns = []; // tracks the end time of the last event in each column
+  const sorted = [...events].sort((a, b) => new Date(a.start) - new Date(b.start));
+  const columns = [];
   const layout = sorted.map(event => {
-    const start = new Date(event.start.dateTime);
-    const end = new Date(event.end.dateTime);
+    const start = new Date(event.start);
+    const end = new Date(event.end);
     let col = columns.findIndex(colEnd => start >= colEnd);
     if (col === -1) col = columns.length;
     columns[col] = end;
     return { event, col };
   });
-  // Determine total concurrent columns for each event
   return layout.map(item => {
-    const start = new Date(item.event.start.dateTime);
-    const end = new Date(item.event.end.dateTime);
+    const start = new Date(item.event.start);
+    const end = new Date(item.event.end);
     const concurrent = layout.filter(other => {
-      const os = new Date(other.event.start.dateTime);
-      const oe = new Date(other.event.end.dateTime);
+      const os = new Date(other.event.start);
+      const oe = new Date(other.event.end);
       return os < end && oe > start;
     });
     const totalCols = Math.max(...concurrent.map(c => c.col)) + 1;
@@ -73,7 +46,7 @@ function layoutTimedEvents(events) {
   });
 }
 
-function DayCalendar({ token, onTodayEvents }) {
+function DayCalendar({ jwt, onTodayEvents }) {
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -87,60 +60,50 @@ function DayCalendar({ token, onTodayEvents }) {
   const scrollRef = useRef(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!jwt) return;
     setLoading(true);
-    fetchDayEvents(token, date)
-      .then(data => {
-        const items = data.items || [];
-        setEvents(items);
-        if (date.toDateString() === today.toDateString()) {
-          onTodayEvents(items);
-        }
+    const dateStr = date.toISOString().split('T')[0];
+    api(`/calendar/events?date=${dateStr}`, {}, jwt)
+      .then(r => r.json())
+      .then(items => {
+        const evts = Array.isArray(items) ? items : [];
+        setEvents(evts);
+        if (date.toDateString() === today.toDateString()) onTodayEvents(evts);
       })
       .catch(err => console.error('Calendar fetch failed', err))
       .finally(() => setLoading(false));
-  }, [token, date, refreshKey, today, onTodayEvents]);
+  }, [jwt, date, refreshKey, today, onTodayEvents]);
 
-  // Scroll to current time on first load
   useEffect(() => {
     if (!scrollRef.current) return;
     const now = new Date();
     const mins = now.getHours() * 60 + now.getMinutes();
-    const scrollTop = (mins - START_HOUR * 60) * (HOUR_HEIGHT / 60) - 120;
-    scrollRef.current.scrollTop = Math.max(0, scrollTop);
+    scrollRef.current.scrollTop = Math.max(0, (mins - START_HOUR * 60) * (HOUR_HEIGHT / 60) - 120);
   }, []);
 
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
-  const allDayEvents = events.filter(e => e.start.date && !e.start.dateTime);
-  const timedEvents = events.filter(e => e.start.dateTime);
+  const allDayEvents = events.filter(e => e.is_all_day);
+  const timedEvents = events.filter(e => !e.is_all_day);
   const isToday = date.toDateString() === today.toDateString();
-
   const now = new Date();
   const nowTop = (now.getHours() * 60 + now.getMinutes() - START_HOUR * 60) * (HOUR_HEIGHT / 60);
 
-  function prevDay() {
-    setDate(d => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; });
-  }
-  function nextDay() {
-    setDate(d => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; });
-  }
-  function goToday() {
-    setDate(new Date(today));
-  }
+  function prevDay() { setDate(d => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; }); }
+  function nextDay() { setDate(d => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; }); }
+  function goToday() { setDate(new Date(today)); }
 
   function eventStyle(e) {
-    const start = new Date(e.start.dateTime);
-    const end = new Date(e.end.dateTime);
+    const start = new Date(e.start);
+    const end = new Date(e.end);
     const startMins = start.getHours() * 60 + start.getMinutes();
     const endMins = end.getHours() * 60 + end.getMinutes();
-    const top = (startMins - START_HOUR * 60) * (HOUR_HEIGHT / 60);
-    const height = Math.max((endMins - startMins) * (HOUR_HEIGHT / 60), 24);
-    return { top: `${top}px`, height: `${height}px` };
+    return {
+      top: `${(startMins - START_HOUR * 60) * (HOUR_HEIGHT / 60)}px`,
+      height: `${Math.max((endMins - startMins) * (HOUR_HEIGHT / 60), 24)}px`,
+    };
   }
 
-  const dateLabel = date.toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-  });
+  const dateLabel = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
     <div className="day-cal">
@@ -151,15 +114,8 @@ function DayCalendar({ token, onTodayEvents }) {
           {isToday && <span className="dc-date-sub"> · {dateLabel}</span>}
         </span>
         <button className="dc-nav" onClick={nextDay}>›</button>
-        {!isToday && (
-          <button className="dc-today-btn" onClick={goToday}>Today</button>
-        )}
-        <button
-          className="dc-refresh-btn"
-          onClick={() => setRefreshKey(k => k + 1)}
-          disabled={loading}
-          title="Refresh calendar"
-        >
+        {!isToday && <button className="dc-today-btn" onClick={goToday}>Today</button>}
+        <button className="dc-refresh-btn" onClick={() => setRefreshKey(k => k + 1)} disabled={loading} title="Refresh">
           {loading ? '…' : '↻'}
         </button>
       </div>
@@ -168,9 +124,7 @@ function DayCalendar({ token, onTodayEvents }) {
         <div className="dc-allday-row">
           <div className="dc-time-gutter dc-allday-label">all-day</div>
           <div className="dc-allday-events">
-            {allDayEvents.map((e, i) => (
-              <div key={i} className="dc-event dc-event-allday">{e.summary}</div>
-            ))}
+            {allDayEvents.map((e, i) => <div key={i} className="dc-event dc-event-allday">{e.title}</div>)}
           </div>
         </div>
       )}
@@ -193,15 +147,17 @@ function DayCalendar({ token, onTodayEvents }) {
             )}
             {layoutTimedEvents(timedEvents).map(({ event, col, totalCols }, i) => {
               const { top, height } = eventStyle(event);
-              const left = `calc(${(col / totalCols) * 100}% + 2px)`;
-              const width = `calc(${(1 / totalCols) * 100}% - 4px)`;
               return (
-                <div key={i} className="dc-event dc-event-timed" style={{ top, height, left, width }}>
-                  <span className="dc-event-title">{event.summary}</span>
+                <div key={i} className="dc-event dc-event-timed" style={{
+                  top, height,
+                  left: `calc(${(col / totalCols) * 100}% + 2px)`,
+                  width: `calc(${(1 / totalCols) * 100}% - 4px)`,
+                }}>
+                  <span className="dc-event-title">{event.title}</span>
                   <span className="dc-event-time">
-                    {new Date(event.start.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     {' – '}
-                    {new Date(event.end.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
               );
@@ -215,15 +171,15 @@ function DayCalendar({ token, onTodayEvents }) {
 
 const FIELDS = {
   meeting: [
-    { key: 'name',      label: 'Name',          type: 'text', placeholder: 'Meeting name', required: true },
-    { key: 'startTime', label: 'Start time',     type: 'time' },
-    { key: 'endTime',   label: 'End time',       type: 'time' },
-    { key: 'location',  label: 'Location',       type: 'text', placeholder: 'Room or link' },
+    { key: 'name',      label: 'Name',      type: 'text', placeholder: 'Meeting name', required: true },
+    { key: 'startTime', label: 'Start time', type: 'time' },
+    { key: 'endTime',   label: 'End time',   type: 'time' },
+    { key: 'location',  label: 'Location',   type: 'text', placeholder: 'Room or link' },
   ],
   work: [
     { key: 'name',     label: 'Name',          type: 'text', placeholder: 'Task name', required: true },
-    { key: 'deadline', label: 'Deadline',      type: 'time' },
-    { key: 'estimate', label: 'Time estimate', type: 'text', placeholder: 'e.g. 2h 30m' },
+    { key: 'deadline', label: 'Deadline',       type: 'time' },
+    { key: 'estimate', label: 'Time estimate',  type: 'text', placeholder: 'e.g. 2h 30m' },
   ],
 };
 
@@ -252,7 +208,7 @@ function TodoList({ title, type, items, checked, onToggle, onAdd }) {
 
   function handleSubmit() {
     if (!form.name?.trim()) return;
-    onAdd(formatEntry(type, form));
+    onAdd(form);
     setForm({});
     setShowForm(false);
   }
@@ -276,7 +232,6 @@ function TodoList({ title, type, items, checked, onToggle, onAdd }) {
           );
         })}
       </ul>
-
       {showForm ? (
         <div className="todo-form" onKeyDown={handleKeyDown}>
           {FIELDS[type].map(f => (
@@ -307,28 +262,11 @@ function TodoList({ title, type, items, checked, onToggle, onAdd }) {
 function SettingsModal({ prefs, onChange, onClose }) {
   const [local, setLocal] = useState(prefs);
 
-  function setField(key, value) {
-    setLocal(prev => ({ ...prev, [key]: value }));
-  }
-
-  function addNoWork() {
-    setLocal(prev => ({ ...prev, noWorkTimes: [...prev.noWorkTimes, { start: '', end: '' }] }));
-  }
-
-  function removeNoWork(i) {
-    setLocal(prev => ({ ...prev, noWorkTimes: prev.noWorkTimes.filter((_, idx) => idx !== i) }));
-  }
-
+  function setField(key, value) { setLocal(prev => ({ ...prev, [key]: value })); }
+  function addNoWork() { setLocal(prev => ({ ...prev, noWorkTimes: [...prev.noWorkTimes, { start: '', end: '' }] })); }
+  function removeNoWork(i) { setLocal(prev => ({ ...prev, noWorkTimes: prev.noWorkTimes.filter((_, idx) => idx !== i) })); }
   function updateNoWork(i, field, value) {
-    setLocal(prev => {
-      const updated = prev.noWorkTimes.map((t, idx) => idx === i ? { ...t, [field]: value } : t);
-      return { ...prev, noWorkTimes: updated };
-    });
-  }
-
-  function handleSave() {
-    onChange(local);
-    onClose();
+    setLocal(prev => ({ ...prev, noWorkTimes: prev.noWorkTimes.map((t, idx) => idx === i ? { ...t, [field]: value } : t) }));
   }
 
   return (
@@ -338,56 +276,24 @@ function SettingsModal({ prefs, onChange, onClose }) {
           <span className="settings-title">Preferences</span>
           <button className="settings-close" onClick={onClose}>✕</button>
         </div>
-
         <div className="settings-body">
-          <div className="settings-row">
-            <div className="settings-label">
-              <span>Break time</span>
-              <span className="settings-hint">minutes between sessions</span>
+          {[
+            { key: 'breakTime', label: 'Break time', hint: 'minutes between sessions' },
+            { key: 'contextSwitch', label: 'Context switching', hint: 'minimum time per task' },
+            { key: 'burnout', label: 'Burnout limit', hint: 'maximum focus time' },
+          ].map(({ key, label, hint }) => (
+            <div key={key} className="settings-row">
+              <div className="settings-label">
+                <span>{label}</span>
+                <span className="settings-hint">{hint}</span>
+              </div>
+              <div className="settings-input-group">
+                <input className="settings-input settings-input-sm" type="number" min="1"
+                  value={local[key]} onChange={e => setField(key, e.target.value)} />
+                <span className="settings-unit">min</span>
+              </div>
             </div>
-            <div className="settings-input-group">
-              <input
-                className="settings-input settings-input-sm"
-                type="number" min="1"
-                value={local.breakTime}
-                onChange={e => setField('breakTime', e.target.value)}
-              />
-              <span className="settings-unit">min</span>
-            </div>
-          </div>
-
-          <div className="settings-row">
-            <div className="settings-label">
-              <span>Context switching</span>
-              <span className="settings-hint">minimum time per task</span>
-            </div>
-            <div className="settings-input-group">
-              <input
-                className="settings-input settings-input-sm"
-                type="number" min="1"
-                value={local.contextSwitch}
-                onChange={e => setField('contextSwitch', e.target.value)}
-              />
-              <span className="settings-unit">min</span>
-            </div>
-          </div>
-
-          <div className="settings-row">
-            <div className="settings-label">
-              <span>Burnout limit</span>
-              <span className="settings-hint">maximum focus time</span>
-            </div>
-            <div className="settings-input-group">
-              <input
-                className="settings-input settings-input-sm"
-                type="number" min="1"
-                value={local.burnout}
-                onChange={e => setField('burnout', e.target.value)}
-              />
-              <span className="settings-unit">min</span>
-            </div>
-          </div>
-
+          ))}
           <div className="settings-section">
             <div className="settings-section-header">
               <span>No-work times</span>
@@ -395,27 +301,16 @@ function SettingsModal({ prefs, onChange, onClose }) {
             </div>
             {local.noWorkTimes.map((t, i) => (
               <div key={i} className="nowork-row">
-                <input
-                  className="settings-input"
-                  type="time"
-                  value={t.start}
-                  onChange={e => updateNoWork(i, 'start', e.target.value)}
-                />
+                <input className="settings-input" type="time" value={t.start} onChange={e => updateNoWork(i, 'start', e.target.value)} />
                 <span className="nowork-to">to</span>
-                <input
-                  className="settings-input"
-                  type="time"
-                  value={t.end}
-                  onChange={e => updateNoWork(i, 'end', e.target.value)}
-                />
+                <input className="settings-input" type="time" value={t.end} onChange={e => updateNoWork(i, 'end', e.target.value)} />
                 <button className="nowork-remove" onClick={() => removeNoWork(i)}>✕</button>
               </div>
             ))}
           </div>
         </div>
-
         <div className="settings-footer">
-          <button className="settings-save" onClick={handleSave}>Save</button>
+          <button className="settings-save" onClick={() => { onChange(local); onClose(); }}>Save</button>
         </div>
       </div>
     </div>
@@ -423,12 +318,92 @@ function SettingsModal({ prefs, onChange, onClose }) {
 }
 
 function App() {
-  const [token, setToken] = useState(null);
-  const [meetings, setMeetings] = useState([]);
-  const [tasks, setTasks] = useState([]);
+  const [jwt, setJwt] = useState(() => localStorage.getItem('flowstate_jwt'));
+  const [meetings, setMeetings] = useState([]); // [{ display, raw }]
+  const [tasks, setTasks] = useState([]);        // [{ display, raw }]
   const [checkedMeetings, setCheckedMeetings] = useState(new Set());
   const [checkedTasks, setCheckedTasks] = useState(new Set());
   const [showSettings, setShowSettings] = useState(false);
+  const [prefs, setPrefs] = useState({ breakTime: 15, contextSwitch: 30, burnout: 120, noWorkTimes: [] });
+
+  // Handle OAuth callback (?code=...&state=...)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    if (!code || !state) return;
+    api(`/auth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`)
+      .then(r => r.json())
+      .then(data => {
+        localStorage.setItem('flowstate_jwt', data.token);
+        setJwt(data.token);
+        window.history.replaceState(null, '', window.location.pathname);
+      })
+      .catch(err => console.error('Auth callback failed', err));
+  }, []);
+
+  // Verify JWT on load
+  useEffect(() => {
+    if (!jwt) return;
+    api('/auth/status', {}, jwt)
+      .then(r => { if (!r.ok) throw new Error(); })
+      .catch(() => { localStorage.removeItem('flowstate_jwt'); setJwt(null); });
+  }, [jwt]);
+
+  // Load preferences from backend
+  useEffect(() => {
+    if (!jwt) return;
+    api('/preferences', {}, jwt)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        setPrefs({
+          breakTime: data.break_time,
+          contextSwitch: data.context_switch,
+          burnout: data.burnout,
+          noWorkTimes: data.no_work_time || [],
+        });
+      })
+      .catch(() => {});
+  }, [jwt]);
+
+  async function handleLogin() {
+    const res = await api('/auth/login');
+    const data = await res.json();
+    window.location.href = data.authorization_url;
+  }
+
+  async function handleLogout() {
+    if (jwt) await api('/auth/logout', { method: 'POST' }, jwt).catch(() => {});
+    localStorage.removeItem('flowstate_jwt');
+    setJwt(null);
+    setMeetings([]);
+    setTasks([]);
+  }
+
+  async function handleSavePrefs(newPrefs) {
+    setPrefs(newPrefs);
+    if (!jwt) return;
+    await api('/preferences', {
+      method: 'PUT',
+      body: JSON.stringify({
+        break_time: parseInt(newPrefs.breakTime) || 0,
+        context_switch: parseInt(newPrefs.contextSwitch) || 0,
+        burnout: parseInt(newPrefs.burnout) || 0,
+        no_work_time: newPrefs.noWorkTimes.filter(t => t.start && t.end),
+      }),
+    }, jwt).catch(err => console.error('Prefs save failed', err));
+  }
+
+  const handleTodayEvents = useCallback((items) => {
+    setMeetings(items
+      .filter(e => !e.is_all_day)
+      .map(e => ({
+        display: `${e.title} — ${new Date(e.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        raw: e,
+      }))
+    );
+  }, []);
 
   function toggle(setChecked) {
     return i => setChecked(prev => {
@@ -438,75 +413,60 @@ function App() {
     });
   }
 
+  function handleAddMeeting(form) {
+    const today = new Date().toISOString().split('T')[0];
+    setMeetings(prev => [...prev, {
+      display: formatEntry('meeting', form),
+      raw: {
+        event_id: null,
+        title: form.name,
+        start: form.startTime ? `${today}T${form.startTime}:00` : null,
+        end: form.endTime ? `${today}T${form.endTime}:00` : null,
+        location: form.location || null,
+        is_all_day: false,
+      },
+    }]);
+  }
+
+  function handleAddTask(form) {
+    const today = new Date().toISOString().split('T')[0];
+    setTasks(prev => [...prev, {
+      display: formatEntry('work', form),
+      raw: {
+        task_id: `local_${Date.now()}`,
+        title: form.name,
+        duration_minutes: parseEstimate(form.estimate),
+        deadline: form.deadline ? `${today}T${form.deadline}:00` : null,
+      },
+    }]);
+  }
+
   async function handleSubmit() {
+    if (!jwt) return;
+    const today = new Date().toISOString().split('T')[0];
     const payload = {
-      submittedAt: new Date().toISOString(),
-      meetings: meetings.map((text, i) => ({ text, done: checkedMeetings.has(i) })),
-      tasks: tasks.map((text, i) => ({ text, done: checkedTasks.has(i) })),
-      preferences: prefs,
+      date: today,
+      events: meetings.filter((_, i) => !checkedMeetings.has(i)).map(m => m.raw).filter(Boolean),
+      tasks: tasks.filter((_, i) => !checkedTasks.has(i)).map(t => t.raw),
+      preferences: {
+        break_time: parseInt(prefs.breakTime) || 0,
+        context_switch: parseInt(prefs.contextSwitch) || 0,
+        burnout: parseInt(prefs.burnout) || 0,
+        no_work_time: prefs.noWorkTimes.filter(t => t.start && t.end),
+      },
     };
     try {
-      await fetch('/api/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await api('/schedule/process', { method: 'POST', body: JSON.stringify(payload) }, jwt);
+      const result = await res.json();
+      console.log('Schedule result:', result);
     } catch (err) {
       console.error('Submit failed', err);
     }
   }
-  const [prefs, setPrefs] = useState({
-    breakTime: 15,
-    contextSwitch: 30,
-    burnout: 120,
-    noWorkTimes: [{ start: '', end: '' }],
-  });
 
-  // Extract token from URL hash after Google redirects back
-  useEffect(() => {
-    const access_token = getTokenFromHash();
-    if (access_token) {
-      setToken(access_token);
-      window.history.replaceState(null, '', window.location.pathname);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!token) return;
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-    fetch(
-      `https://tasks.googleapis.com/tasks/v1/lists/@default/tasks?` +
-        new URLSearchParams({
-          showCompleted: false,
-          showHidden: false,
-          dueMin: start.toISOString(),
-          dueMax: end.toISOString(),
-        }),
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-      .then(r => r.json())
-      .then(data => {
-        const items = (data.items || []).map(t => t.title).filter(Boolean);
-        setTasks(items);
-      })
-      .catch(err => console.error('Tasks fetch failed', err));
-  }, [token]);
-
-  // Only calendar events (eventType 'default') go in the Meetings list
-  const handleTodayEvents = useCallback((items) => {
-    const formatted = items
-      .filter(e => !e.eventType || e.eventType === 'default')
-      .map(e => {
-        const time = e.start.dateTime
-          ? new Date(e.start.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : 'All day';
-        return `${e.summary} — ${time}`;
-      });
-    setMeetings(formatted);
-  }, []);
+  const meetingItems = meetings.length > 0
+    ? meetings.map(m => m.display)
+    : jwt ? ['No meetings today'] : ['Sign in to load meetings'];
 
   return (
     <div className="app-shell">
@@ -514,59 +474,41 @@ function App() {
         <span className="app-name">Flowstate</span>
         <span className="app-tagline">Personal Secretary</span>
         <div className="top-bar-actions">
-          {token ? (
-            <button className="auth-btn signout" onClick={() => { setToken(null); setMeetings([]); setTasks([]); }}>
-              Sign out
-            </button>
+          {jwt ? (
+            <button className="auth-btn signout" onClick={handleLogout}>Sign out</button>
           ) : (
-            <button className="auth-btn signin" onClick={() => { window.location.href = buildAuthUrl(); }}>
-              Sign in with Google
-            </button>
+            <button className="auth-btn signin" onClick={handleLogin}>Sign in with Google</button>
           )}
         </div>
       </header>
       {showSettings && (
-        <SettingsModal
-          prefs={prefs}
-          onChange={setPrefs}
-          onClose={() => setShowSettings(false)}
-        />
+        <SettingsModal prefs={prefs} onChange={handleSavePrefs} onClose={() => setShowSettings(false)} />
       )}
-
       <main className="workspace">
         <section className="calendar-pane">
           <div className="pane-header">Calendar</div>
-          {token ? (
-            <DayCalendar token={token} onTodayEvents={handleTodayEvents} />
+          {jwt ? (
+            <DayCalendar jwt={jwt} onTodayEvents={handleTodayEvents} />
           ) : (
             <div className="calendar-placeholder">
               <p>Sign in with Google to view your calendar</p>
             </div>
           )}
         </section>
-
         <aside className="sidebar">
           <TodoList
-            type="meeting"
-            title="Meetings"
-            items={
-              meetings.length > 0
-                ? meetings
-                : token
-                ? ['No meetings today']
-                : ['Sign in to load meetings']
-            }
+            type="meeting" title="Meetings"
+            items={meetingItems}
             checked={checkedMeetings}
             onToggle={toggle(setCheckedMeetings)}
-            onAdd={item => setMeetings(prev => [...prev, item])}
+            onAdd={handleAddMeeting}
           />
           <TodoList
-            type="work"
-            title="Deep Work"
-            items={tasks}
+            type="work" title="Deep Work"
+            items={tasks.map(t => t.display)}
             checked={checkedTasks}
             onToggle={toggle(setCheckedTasks)}
-            onAdd={item => setTasks(prev => [...prev, item])}
+            onAdd={handleAddTask}
           />
           <div className="sidebar-footer">
             <button className="prefs-btn" onClick={() => setShowSettings(true)}>Preferences</button>
