@@ -458,9 +458,19 @@ function App() {
     try {
       const res = await api('/schedule/process', { method: 'POST', body: JSON.stringify(payload) }, jwt);
       const result = await res.json();
+      if (!res.ok) {
+        let errMsg = result.detail || 'An unknown error occurred';
+        if (Array.isArray(result.detail)) {
+          errMsg = result.detail.map(e => `${e.loc[e.loc.length - 1]}: ${e.msg}`).join('\n');
+        }
+        alert(`Failed to submit schedule:\n${errMsg}`);
+        return;
+      }
       console.log('Schedule result:', result);
+      alert('Schedule processed successfully!');
     } catch (err) {
       console.error('Submit failed', err);
+      alert(`Submit failed: ${err.message}`);
     }
   }
 
