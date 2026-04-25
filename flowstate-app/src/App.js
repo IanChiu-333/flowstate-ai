@@ -427,6 +427,8 @@ function App() {
       'https://www.googleapis.com/auth/calendar.readonly',
       'https://www.googleapis.com/auth/tasks.readonly',
     ].join(' '),
+    ux_mode: 'redirect',
+    redirect_uri: window.location.origin,
     onSuccess: ({ access_token }) => setToken(access_token),
     onError: () => console.error('Google login failed'),
   });
