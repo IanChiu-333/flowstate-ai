@@ -1,0 +1,201 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0f1117;
+  color: #e2e8f0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── Top bar ── */
+.top-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 24px;
+  background: #1a1d27;
+  border-bottom: 1px solid #2d3148;
+  flex-shrink: 0;
+}
+
+.app-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #7c85ff;
+  letter-spacing: 0.03em;
+}
+
+.app-tagline {
+  font-size: 0.8rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ── Main workspace ── */
+.workspace {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Calendar pane ── */
+.calendar-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #13151f;
+  border-right: 1px solid #2d3148;
+}
+
+.pane-header {
+  padding: 10px 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #6b7280;
+  background: #1a1d27;
+  border-bottom: 1px solid #2d3148;
+}
+
+.calendar-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #fff;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: #13151f;
+}
+
+/* ── Todo panel ── */
+.todo-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid #2d3148;
+  flex: 1;
+  min-height: 0;
+}
+
+.todo-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #c4c9e8;
+  margin-bottom: 14px;
+  letter-spacing: 0.02em;
+}
+
+.todo-list {
+  list-style: none;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #1a1d27;
+  border: 1px solid #2d3148;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #d1d5db;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.todo-item:hover {
+  border-color: #7c85ff;
+  background: #1e2135;
+}
+
+.todo-checkbox {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #4b5563;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  transition: border-color 0.15s;
+}
+
+.todo-item:hover .todo-checkbox {
+  border-color: #7c85ff;
+}
+
+/* ── Add item input ── */
+.todo-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: #1a1d27;
+  border: 1px solid #2d3148;
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.todo-input::placeholder {
+  color: #4b5563;
+}
+
+.todo-input:focus {
+  border-color: #7c85ff;
+}
+
+/* ── Sidebar footer ── */
+.sidebar-footer {
+  padding: 14px 16px;
+  border-top: 1px solid #2d3148;
+  flex-shrink: 0;
+}
+
+/* ── Submit button ── */
+.submit-btn {
+  width: 100%;
+  padding: 10px 0;
+  background: #7c85ff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.submit-btn:hover {
+  background: #636cff;
+}
+
+.submit-btn:active {
+  transform: scale(0.98);
+}
