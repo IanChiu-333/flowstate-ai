@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import './App.css';
 
@@ -53,8 +53,11 @@ function layoutTimedEvents(events) {
 }
 
 function DayCalendar({ token, onTodayEvents }) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
   const [date, setDate] = useState(new Date(today));
   const [events, setEvents] = useState([]);
@@ -75,7 +78,7 @@ function DayCalendar({ token, onTodayEvents }) {
       })
       .catch(err => console.error('Calendar fetch failed', err))
       .finally(() => setLoading(false));
-  }, [token, date, refreshKey]);
+  }, [token, date, refreshKey, today, onTodayEvents]);
 
   // Scroll to current time on first load
   useEffect(() => {
@@ -453,7 +456,7 @@ function App() {
   }, [token]);
 
   // Only calendar events (eventType 'default') go in the Meetings list
-  function handleTodayEvents(items) {
+  const handleTodayEvents = useCallback((items) => {
     const formatted = items
       .filter(e => !e.eventType || e.eventType === 'default')
       .map(e => {
@@ -463,7 +466,7 @@ function App() {
         return `${e.summary} — ${time}`;
       });
     setMeetings(formatted);
-  }
+  }, []);
 
   return (
     <div className="app-shell">
