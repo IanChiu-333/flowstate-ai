@@ -58,10 +58,13 @@ function DayCalendar({ token, onTodayEvents }) {
 
   const [date, setDate] = useState(new Date(today));
   const [events, setEvents] = useState([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [loading, setLoading] = useState(false);
   const scrollRef = useRef(null);
 
   useEffect(() => {
     if (!token) return;
+    setLoading(true);
     fetchDayEvents(token, date)
       .then(data => {
         const items = data.items || [];
@@ -70,8 +73,9 @@ function DayCalendar({ token, onTodayEvents }) {
           onTodayEvents(items);
         }
       })
-      .catch(err => console.error('Calendar fetch failed', err));
-  }, [token, date]);
+      .catch(err => console.error('Calendar fetch failed', err))
+      .finally(() => setLoading(false));
+  }, [token, date, refreshKey]);
 
   // Scroll to current time on first load
   useEffect(() => {
@@ -126,6 +130,14 @@ function DayCalendar({ token, onTodayEvents }) {
         {!isToday && (
           <button className="dc-today-btn" onClick={goToday}>Today</button>
         )}
+        <button
+          className="dc-refresh-btn"
+          onClick={() => setRefreshKey(k => k + 1)}
+          disabled={loading}
+          title="Refresh calendar"
+        >
+          {loading ? '…' : '↻'}
+        </button>
       </div>
 
       {allDayEvents.length > 0 && (

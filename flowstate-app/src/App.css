@@ -175,6 +175,20 @@ body {
 }
 .dc-today-btn:hover { background: #3a3f5c; color: #e2e8f0; }
 
+.dc-refresh-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+.dc-refresh-btn:hover { color: #e2e8f0; background: #2d3148; }
+.dc-refresh-btn:disabled { opacity: 0.4; cursor: default; }
+
 .dc-allday-row {
   display: flex;
   align-items: flex-start;
