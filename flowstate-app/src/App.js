@@ -1,5 +1,26 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useGoogleLogin } from '@react-oauth/google';
+
+const SCOPES = [
+  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/tasks.readonly',
+].join(' ');
+
+function buildAuthUrl() {
+  const params = new URLSearchParams({
+    client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+    redirect_uri: window.location.origin,
+    response_type: 'token',
+    scope: SCOPES,
+    include_granted_scopes: 'true',
+    prompt: 'select_account',
+  });
+  return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+}
+
+function getTokenFromHash() {
+  const params = new URLSearchParams(window.location.hash.substring(1));
+  return params.get('access_token');
+}
 import './App.css';
 
 const HOUR_HEIGHT = 64;
@@ -422,16 +443,14 @@ function App() {
     noWorkTimes: [{ start: '', end: '' }],
   });
 
-  const login = useGoogleLogin({
-    scope: [
-      'https://www.googleapis.com/auth/calendar.readonly',
-      'https://www.googleapis.com/auth/tasks.readonly',
-    ].join(' '),
-    ux_mode: 'redirect',
-    redirect_uri: window.location.origin,
-    onSuccess: ({ access_token }) => setToken(access_token),
-    onError: () => console.error('Google login failed'),
-  });
+  // Extract token from URL hash after Google redirects back
+  useEffect(() => {
+    const access_token = getTokenFromHash();
+    if (access_token) {
+      setToken(access_token);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -481,7 +500,7 @@ function App() {
               Sign out
             </button>
           ) : (
-            <button className="auth-btn signin" onClick={() => login()}>
+            <button className="auth-btn signin" onClick={() => { window.location.href = buildAuthUrl(); }}>
               Sign in with Google
             </button>
           )}
