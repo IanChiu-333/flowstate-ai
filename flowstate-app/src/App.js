@@ -3,8 +3,8 @@ import { useGoogleLogin } from '@react-oauth/google';
 import './App.css';
 
 const HOUR_HEIGHT = 64;
-const START_HOUR = 6;
-const END_HOUR = 23;
+const START_HOUR = 0;
+const END_HOUR = 24;
 
 function fetchDayEvents(token, date) {
   const start = new Date(date);
@@ -156,7 +156,7 @@ function DayCalendar({ token, onTodayEvents }) {
           <div className="dc-time-col">
             {hours.map(h => (
               <div key={h} className="dc-hour-label">
-                {h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`}
+                {h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : h === 24 ? '12 AM' : `${h - 12} PM`}
               </div>
             ))}
           </div>
@@ -289,10 +289,135 @@ function TodoList({ title, type, items, onAdd }) {
   );
 }
 
+function SettingsModal({ prefs, onChange, onClose }) {
+  const [local, setLocal] = useState(prefs);
+
+  function setField(key, value) {
+    setLocal(prev => ({ ...prev, [key]: value }));
+  }
+
+  function addNoWork() {
+    setLocal(prev => ({ ...prev, noWorkTimes: [...prev.noWorkTimes, { start: '', end: '' }] }));
+  }
+
+  function removeNoWork(i) {
+    setLocal(prev => ({ ...prev, noWorkTimes: prev.noWorkTimes.filter((_, idx) => idx !== i) }));
+  }
+
+  function updateNoWork(i, field, value) {
+    setLocal(prev => {
+      const updated = prev.noWorkTimes.map((t, idx) => idx === i ? { ...t, [field]: value } : t);
+      return { ...prev, noWorkTimes: updated };
+    });
+  }
+
+  function handleSave() {
+    onChange(local);
+    onClose();
+  }
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="settings-modal" onClick={e => e.stopPropagation()}>
+        <div className="settings-header">
+          <span className="settings-title">Preferences</span>
+          <button className="settings-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="settings-body">
+          <div className="settings-row">
+            <div className="settings-label">
+              <span>Break time</span>
+              <span className="settings-hint">minutes between sessions</span>
+            </div>
+            <div className="settings-input-group">
+              <input
+                className="settings-input settings-input-sm"
+                type="number" min="1"
+                value={local.breakTime}
+                onChange={e => setField('breakTime', e.target.value)}
+              />
+              <span className="settings-unit">min</span>
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label">
+              <span>Context switching</span>
+              <span className="settings-hint">minimum time per task</span>
+            </div>
+            <div className="settings-input-group">
+              <input
+                className="settings-input settings-input-sm"
+                type="number" min="1"
+                value={local.contextSwitch}
+                onChange={e => setField('contextSwitch', e.target.value)}
+              />
+              <span className="settings-unit">min</span>
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label">
+              <span>Burnout limit</span>
+              <span className="settings-hint">maximum focus time</span>
+            </div>
+            <div className="settings-input-group">
+              <input
+                className="settings-input settings-input-sm"
+                type="number" min="1"
+                value={local.burnout}
+                onChange={e => setField('burnout', e.target.value)}
+              />
+              <span className="settings-unit">min</span>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <div className="settings-section-header">
+              <span>No-work times</span>
+              <button className="settings-add-time" onClick={addNoWork}>+ Add range</button>
+            </div>
+            {local.noWorkTimes.map((t, i) => (
+              <div key={i} className="nowork-row">
+                <input
+                  className="settings-input"
+                  type="time"
+                  value={t.start}
+                  onChange={e => updateNoWork(i, 'start', e.target.value)}
+                />
+                <span className="nowork-to">to</span>
+                <input
+                  className="settings-input"
+                  type="time"
+                  value={t.end}
+                  onChange={e => updateNoWork(i, 'end', e.target.value)}
+                />
+                <button className="nowork-remove" onClick={() => removeNoWork(i)}>✕</button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-footer">
+          <button className="settings-save" onClick={handleSave}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [token, setToken] = useState(null);
   const [meetings, setMeetings] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [showSettings, setShowSettings] = useState(false);
+  const [prefs, setPrefs] = useState({
+    breakTime: 15,
+    contextSwitch: 30,
+    burnout: 120,
+    noWorkTimes: [{ start: '', end: '' }],
+  });
 
   const login = useGoogleLogin({
     scope: [
@@ -357,6 +482,13 @@ function App() {
           )}
         </div>
       </header>
+      {showSettings && (
+        <SettingsModal
+          prefs={prefs}
+          onChange={setPrefs}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
 
       <main className="workspace">
         <section className="calendar-pane">
@@ -390,6 +522,7 @@ function App() {
             onAdd={item => setTasks(prev => [...prev, item])}
           />
           <div className="sidebar-footer">
+            <button className="prefs-btn" onClick={() => setShowSettings(true)}>Preferences</button>
             <button className="submit-btn">Submit</button>
           </div>
         </aside>
