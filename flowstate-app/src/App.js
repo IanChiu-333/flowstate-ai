@@ -6,47 +6,22 @@ const HOUR_HEIGHT = 64;
 const START_HOUR = 6;
 const END_HOUR = 23;
 
-async function fetchDayEvents(token, date) {
+function fetchDayEvents(token, date) {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);
   const end = new Date(date);
   end.setHours(23, 59, 59, 999);
-
-  const headers = { Authorization: `Bearer ${token}` };
-  const params = new URLSearchParams({
-    timeMin: start.toISOString(),
-    timeMax: end.toISOString(),
-    singleEvents: true,
-    orderBy: 'startTime',
-    maxResults: 50,
-  });
-
-  // Get all calendars the user has access to (including shared)
-  const calList = await fetch(
-    'https://www.googleapis.com/calendar/v3/users/me/calendarList',
-    { headers }
-  ).then(r => r.json());
-
-  const calendars = (calList.items || []).filter(c => c.selected !== false);
-
-  // Fetch events from all calendars in parallel
-  const results = await Promise.all(
-    calendars.map(cal =>
-      fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${params}`,
-        { headers }
-      ).then(r => r.json()).then(d => d.items || []).catch(() => [])
-    )
-  );
-
-  // Merge and sort by start time
-  const allEvents = results.flat().sort((a, b) => {
-    const aTime = a.start.dateTime || a.start.date;
-    const bTime = b.start.dateTime || b.start.date;
-    return aTime < bTime ? -1 : 1;
-  });
-
-  return { items: allEvents };
+  return fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+      new URLSearchParams({
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+        singleEvents: true,
+        orderBy: 'startTime',
+        maxResults: 50,
+      }),
+    { headers: { Authorization: `Bearer ${token}` } }
+  ).then(res => res.json());
 }
 
 // Assigns each overlapping event a column so they sit side-by-side
