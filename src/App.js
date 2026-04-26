@@ -70,7 +70,8 @@ function DayCalendar({ jwt, onTodayEvents, externalRefreshKey }) {
     if (!jwt) return;
     setLoading(true);
     const dateStr = getLocalYMD(date);
-    api(`/calendar/events?date=${dateStr}`, {}, jwt)
+    const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    api(`/calendar/events?date=${dateStr}&timezone=${tz}`, { cache: 'no-store' }, jwt)
       .then(r => r.json())
       .then(items => {
         const evts = Array.isArray(items) ? items : [];
