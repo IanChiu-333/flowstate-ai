@@ -12,16 +12,6 @@ function api(path, options = {}, jwt = null) {
   return fetch(`${BACKEND}${path}`, { ...options, headers });
 }
 
-function parseEstimate(str) {
-  if (!str) return null;
-  let mins = 0;
-  const h = str.match(/(\d+)\s*h/i);
-  const m = str.match(/(\d+)\s*m/i);
-  if (h) mins += parseInt(h[1]) * 60;
-  if (m) mins += parseInt(m[1]);
-  return mins > 0 ? mins : null;
-}
-
 function getLocalYMD(d = new Date()) {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -75,7 +65,6 @@ function DayCalendar({ jwt, onTodayEvents, externalRefreshKey }) {
       .then(r => r.json())
       .then(items => {
         const evts = Array.isArray(items) ? items : [];
-        console.log('Raw events from backend:', evts.map(e => ({ title: e.title, start: e.start, end: e.end })));
         setEvents(evts);
         onTodayEvents(evts, date);
       })
@@ -178,108 +167,17 @@ function DayCalendar({ jwt, onTodayEvents, externalRefreshKey }) {
   );
 }
 
-const FIELDS = {
-  meeting: [
-    { key: 'name', label: 'Name', type: 'text', placeholder: 'Meeting name', required: true },
-    { key: 'allDay', label: 'All day', type: 'checkbox' },
-    { key: 'startTime', label: 'Start time', type: 'time', hideWhen: f => f.allDay },
-    { key: 'endTime', label: 'End time', type: 'time', hideWhen: f => f.allDay },
-    { key: 'location', label: 'Location', type: 'text', placeholder: 'Room or link' },
-  ],
-  work: [
-    { key: 'name', label: 'Name', type: 'text', placeholder: 'Task name', required: true },
-    { key: 'deadline', label: 'Deadline', type: 'time' },
-    { key: 'estimate', label: 'Time estimate', type: 'text', placeholder: 'e.g. 2h 30m' },
-  ],
-};
-
-function formatTime(t) {
-  if (!t) return '';
-  const [h, m] = t.split(':').map(Number);
-  return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
-}
-
-function formatEntry(type, form) {
-  const parts = [form.name];
-  if (type === 'meeting') {
-    if (form.allDay) {
-      parts.push('All day');
-    } else {
-      const times = [formatTime(form.startTime), formatTime(form.endTime)].filter(Boolean).join(' – ');
-      if (times) parts.push(times);
-    }
-    if (form.location?.trim()) parts.push(form.location.trim());
-  } else {
-    if (form.deadline) parts.push(`due ${formatTime(form.deadline)}`);
-    if (form.estimate?.trim()) parts.push(form.estimate.trim());
-  }
-  return parts.join(' · ');
-}
-
-function TodoList({ title, type, items, checked, onToggle, onAdd }) {
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({});
-
-  function handleSubmit() {
-    if (!form.name?.trim()) return;
-    onAdd(form);
-    setForm({});
-    setShowForm(false);
-  }
-
-  function handleKeyDown(e) {
-    if (e.key === 'Enter') handleSubmit();
-    if (e.key === 'Escape') setShowForm(false);
-  }
-
+function FreeformTodos({ todos, onChange }) {
   return (
-    <div className="todo-panel">
-      <h2 className="todo-title">{title}</h2>
-      <ul className="todo-list">
-        {items.map((item, i) => {
-          const done = checked.has(i);
-          return (
-            <li key={i} className={`todo-item${done ? ' done' : ''}`} onClick={() => onToggle(i)}>
-              <span className={`todo-checkbox${done ? ' checked' : ''}`} />
-              <span>{item}</span>
-            </li>
-          );
-        })}
-      </ul>
-      {showForm ? (
-        <div className="todo-form" onKeyDown={handleKeyDown}>
-          {FIELDS[type]
-            .filter(f => !f.hideWhen || !f.hideWhen(form))
-            .map(f => (
-              <div key={f.key} className={`form-row${f.type === 'checkbox' ? ' form-row-check' : ''}`}>
-                <label className="form-label">{f.label}</label>
-                {f.type === 'checkbox' ? (
-                  <input
-                    type="checkbox"
-                    className="form-checkbox"
-                    checked={!!form[f.key]}
-                    onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.checked }))}
-                  />
-                ) : (
-                  <input
-                    className="form-input"
-                    type={f.type}
-                    placeholder={f.placeholder || ''}
-                    value={form[f.key] || ''}
-                    autoFocus={f.key === 'name'}
-                    onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                  />
-                )}
-              </div>
-            ))}
-          <div className="form-actions">
-            <button className="form-btn-add" onClick={handleSubmit}>Add</button>
-            <button className="form-btn-cancel" onClick={() => { setShowForm(false); setForm({}); }}>Cancel</button>
-          </div>
-        </div>
-      ) : (
-        <button className="todo-add-btn" onClick={() => setShowForm(true)}>+ Add item</button>
-      )}
+    <div className="todos-panel">
+      <h2 className="todo-title">To-dos</h2>
+      <textarea
+        className="todos-textarea"
+        value={todos}
+        onChange={e => onChange(e.target.value)}
+        placeholder="Type your todos, one per line…"
+        spellCheck={false}
+      />
     </div>
   );
 }
@@ -361,12 +259,23 @@ function LoadingScreen() {
   );
 }
 
+function ClarificationNotification({ message, onDismiss }) {
+  if (!message) return null;
+  return (
+    <div className="clarification-popup">
+      <div className="clarification-header">
+        <span className="clarification-label">Gemini</span>
+        <button className="clarification-close" onClick={onDismiss}>✕</button>
+      </div>
+      <p className="clarification-message">{message}</p>
+    </div>
+  );
+}
+
 function App() {
   const [jwt, setJwt] = useState(() => localStorage.getItem('flowstate_jwt'));
-  const [meetings, setMeetings] = useState([]); // [{ display, raw }]
-  const [tasks, setTasks] = useState([]);        // [{ display, raw }]
-  const [checkedMeetings, setCheckedMeetings] = useState(new Set());
-  const [checkedTasks, setCheckedTasks] = useState(new Set());
+  const [todos, setTodos] = useState('');
+  const [clarification, setClarification] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
@@ -424,8 +333,7 @@ function App() {
     if (jwt) await api('/auth/logout', { method: 'POST' }, jwt).catch(() => { });
     localStorage.removeItem('flowstate_jwt');
     setJwt(null);
-    setMeetings([]);
-    setTasks([]);
+    setTodos('');
   }
 
   async function handleSavePrefs(newPrefs) {
@@ -442,64 +350,19 @@ function App() {
     }, jwt).catch(err => console.error('Prefs save failed', err));
   }
 
-  const handleTodayEvents = useCallback((items, date) => {
+  const handleTodayEvents = useCallback((_items, date) => {
     setSidebarDate(date);
-    setMeetings(items
-      .filter(e => !e.is_all_day && e.start.includes('T'))
-      .map(e => ({
-        display: `${e.title} — ${new Date(e.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-        raw: e,
-      }))
-    );
-    setCheckedMeetings(new Set());
   }, []);
-
-  function toggle(setChecked) {
-    return i => setChecked(prev => {
-      const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
-  }
-
-  function handleAddMeeting(form) {
-    const today = getLocalYMD();
-    const isAllDay = !!form.allDay;
-    setMeetings(prev => [...prev, {
-      display: formatEntry('meeting', form),
-      raw: {
-        event_id: null,
-        title: form.name,
-        start: isAllDay ? today : (form.startTime ? `${today}T${form.startTime}:00` : null),
-        end: isAllDay ? today : (form.endTime ? `${today}T${form.endTime}:00` : null),
-        location: form.location || null,
-        is_all_day: isAllDay,
-      },
-    }]);
-  }
-
-  function handleAddTask(form) {
-    const today = getLocalYMD();
-    setTasks(prev => [...prev, {
-      display: formatEntry('work', form),
-      raw: {
-        task_id: `local_${Date.now()}`,
-        title: form.name,
-        duration_minutes: parseEstimate(form.estimate),
-        deadline: form.deadline ? `${today}T${form.deadline}:00` : null,
-      },
-    }]);
-  }
 
   async function handleSubmit() {
     if (!jwt) return;
+    const todoList = todos.split('\n').map(t => t.trim()).filter(Boolean);
+    if (todoList.length === 0) return;
     setIsSubmitting(true);
-    const today = getLocalYMD();
     const payload = {
-      date: today,
+      date: getLocalYMD(sidebarDate),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      events: meetings.filter((_, i) => !checkedMeetings.has(i)).map(m => m.raw).filter(Boolean),
-      tasks: tasks.filter((_, i) => !checkedTasks.has(i)).map(t => t.raw),
+      todos: todoList,
       preferences: {
         break_time: parseInt(prefs.breakTime) || 0,
         context_switch: Boolean(prefs.contextSwitch),
@@ -509,29 +372,39 @@ function App() {
     };
     try {
       const res = await api('/schedule/process', { method: 'POST', body: JSON.stringify(payload) }, jwt);
-      const result = await res.json();
-      
+      const text = await res.text();
+
       if (!res.ok) {
-        let errMsg = result.detail || 'An unknown error occurred';
-        if (Array.isArray(result.detail)) {
-          errMsg = result.detail.map(e => `${e.loc[e.loc.length - 1]}: ${e.msg}`).join('\n');
-        }
-        alert(`Failed to submit schedule:\n${errMsg}`);
+        let errMsg = text;
+        try {
+          const parsed = JSON.parse(text);
+          errMsg = parsed.detail || text;
+          if (Array.isArray(parsed.detail)) {
+            errMsg = parsed.detail.map(e => `${e.loc[e.loc.length - 1]}: ${e.msg}`).join('\n');
+          }
+        } catch { }
+        setClarification(errMsg);
         return;
       }
-      
-      console.log('Schedule result:', result);
-      setCalendarRefreshKey(k => k + 1);
-      alert('Schedule processed successfully!');
+
+      let result;
+      try { result = JSON.parse(text); } catch { result = null; }
+
+      if (result !== null && typeof result === 'object' && !Array.isArray(result)) {
+        // JSON object → success, schedule was processed
+        setCalendarRefreshKey(k => k + 1);
+        setTodos('');
+      } else {
+        // String response → Gemini needs clarification
+        setClarification(typeof result === 'string' ? result : text);
+      }
     } catch (err) {
       console.error('Submit failed', err);
-      alert(`Submit failed: ${err.message}`);
+      setClarification(`Submit failed: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
   }
-
-  const meetingItems = meetings.map(m => m.display);
 
   if (isSubmitting) return <LoadingScreen />;
 
@@ -551,6 +424,7 @@ function App() {
       {showSettings && (
         <SettingsModal prefs={prefs} onChange={handleSavePrefs} onClose={() => setShowSettings(false)} />
       )}
+      <ClarificationNotification message={clarification} onDismiss={() => setClarification(null)} />
       <main className="workspace">
         <section className="calendar-pane">
           <div className="pane-header">Calendar</div>
@@ -566,20 +440,7 @@ function App() {
           <div className="sidebar-date-label">
             {sidebarDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
           </div>
-          <TodoList
-            type="meeting" title="Events"
-            items={meetingItems}
-            checked={checkedMeetings}
-            onToggle={toggle(setCheckedMeetings)}
-            onAdd={handleAddMeeting}
-          />
-          <TodoList
-            type="work" title="Tasks"
-            items={tasks.map(t => t.display)}
-            checked={checkedTasks}
-            onToggle={toggle(setCheckedTasks)}
-            onAdd={handleAddTask}
-          />
+          <FreeformTodos todos={todos} onChange={setTodos} />
           <div className="sidebar-footer">
             <button className="prefs-btn" onClick={() => setShowSettings(true)}>Preferences</button>
             <button className="submit-btn" onClick={handleSubmit}>Submit</button>
@@ -591,5 +452,3 @@ function App() {
 }
 
 export default App;
-
-//Kevin Changes

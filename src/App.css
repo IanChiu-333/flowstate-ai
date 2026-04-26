@@ -786,6 +786,86 @@ body {
 }
 .settings-save:hover { background: #636cff; }
 
+/* ── Freeform todos panel ── */
+.todos-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid #2d3148;
+  flex: 1;
+  min-height: 0;
+}
+
+.todos-textarea {
+  flex: 1;
+  resize: none;
+  background: #1a1d27;
+  border: 1px solid #2d3148;
+  border-radius: 8px;
+  color: #d1d5db;
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  min-height: 0;
+}
+.todos-textarea:focus { border-color: #7c85ff; }
+.todos-textarea::placeholder { color: #4b5563; }
+
+/* ── Clarification popup ── */
+.clarification-popup {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 320px;
+  background: #1a1d27;
+  border: 1px solid #2d3148;
+  border-left: 3px solid #7c85ff;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.clarification-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.clarification-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7c85ff;
+}
+
+.clarification-close {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  transition: color 0.15s;
+  line-height: 1;
+}
+.clarification-close:hover { color: #e2e8f0; }
+
+.clarification-message {
+  font-size: 0.85rem;
+  color: #c4c9e8;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
 /* ── Loading screen ── */
 .loading-screen {
   position: fixed;
