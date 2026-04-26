@@ -170,6 +170,11 @@ function DayCalendar({ jwt, onTodayEvents, externalRefreshKey }) {
 function FreeformTodos({ todos, onChange }) {
   const inputRefs = useRef([]);
 
+  function addItem() {
+    onChange([...todos, '']);
+    setTimeout(() => inputRefs.current[todos.length]?.focus(), 0);
+  }
+
   function handleChange(i, value) {
     const next = [...todos];
     next[i] = value;
@@ -191,11 +196,6 @@ function FreeformTodos({ todos, onChange }) {
     }
   }
 
-  function addItem() {
-    onChange([...todos, '']);
-    setTimeout(() => inputRefs.current[todos.length]?.focus(), 0);
-  }
-
   return (
     <div className="todos-panel">
       <h2 className="todo-title">To-dos</h2>
@@ -215,7 +215,7 @@ function FreeformTodos({ todos, onChange }) {
           </li>
         ))}
       </ul>
-      <button className="todo-add-btn" onClick={addItem}>+ Add item</button>
+      <div className="todos-click-zone" onClick={addItem} />
     </div>
   );
 }
@@ -297,15 +297,17 @@ function LoadingScreen() {
   );
 }
 
-function ClarificationNotification({ message, onDismiss }) {
-  if (!message) return null;
+function ToastNotification({ toast, onDismiss }) {
+  if (!toast) return null;
   return (
-    <div className="clarification-popup">
-      <div className="clarification-header">
-        <span className="clarification-label">Gemini</span>
-        <button className="clarification-close" onClick={onDismiss}>✕</button>
+    <div className={`toast-popup toast-${toast.type}`}>
+      <div className="toast-header">
+        <span className="toast-label">
+          {toast.type === 'success' ? 'Done' : toast.type === 'error' ? 'Error' : 'Gemini'}
+        </span>
+        <button className="toast-close" onClick={onDismiss}>✕</button>
       </div>
-      <p className="clarification-message">{message}</p>
+      <p className="toast-message">{toast.message}</p>
     </div>
   );
 }
@@ -313,7 +315,7 @@ function ClarificationNotification({ message, onDismiss }) {
 function App() {
   const [jwt, setJwt] = useState(() => localStorage.getItem('flowstate_jwt'));
   const [todos, setTodos] = useState(['']);
-  const [clarification, setClarification] = useState(null);
+  const [toast, setToast] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
@@ -403,7 +405,6 @@ function App() {
   async function handleSubmit() {
     if (!jwt) return;
     const todoList = todos.map(t => t.trim()).filter(Boolean);
-    if (todoList.length === 0) return;
     setIsSubmitting(true);
     const payload = {
       date: getLocalYMD(sidebarDate),
@@ -429,7 +430,7 @@ function App() {
             errMsg = parsed.detail.map(e => `${e.loc[e.loc.length - 1]}: ${e.msg}`).join('\n');
           }
         } catch { }
-        setClarification(errMsg);
+        setToast({ message: errMsg, type: 'error' });
         return;
       }
 
@@ -437,16 +438,16 @@ function App() {
       try { result = JSON.parse(text); } catch { result = null; }
 
       if (result !== null && typeof result === 'object' && !Array.isArray(result)) {
-        // JSON object → success, schedule was processed
         setCalendarRefreshKey(k => k + 1);
         setTodos(['']);
+        setToast({ message: 'Your day has been optimized!', type: 'success' });
       } else {
         // String response → Gemini needs clarification
-        setClarification(typeof result === 'string' ? result : text);
+        setToast({ message: typeof result === 'string' ? result : text, type: 'clarification' });
       }
     } catch (err) {
       console.error('Submit failed', err);
-      setClarification(`Submit failed: ${err.message}`);
+      setToast({ message: `Submit failed: ${err.message}`, type: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -470,7 +471,7 @@ function App() {
       {showSettings && (
         <SettingsModal prefs={prefs} onChange={handleSavePrefs} onClose={() => setShowSettings(false)} />
       )}
-      <ClarificationNotification message={clarification} onDismiss={() => setClarification(null)} />
+      <ToastNotification toast={toast} onDismiss={() => setToast(null)} />
       <main className="workspace">
         <section className="calendar-pane">
           <div className="pane-header">Calendar</div>
