@@ -181,8 +181,9 @@ function DayCalendar({ jwt, onTodayEvents, externalRefreshKey }) {
 const FIELDS = {
   meeting: [
     { key: 'name', label: 'Name', type: 'text', placeholder: 'Meeting name', required: true },
-    { key: 'startTime', label: 'Start time', type: 'time' },
-    { key: 'endTime', label: 'End time', type: 'time' },
+    { key: 'allDay', label: 'All day', type: 'checkbox' },
+    { key: 'startTime', label: 'Start time', type: 'time', hideWhen: f => f.allDay },
+    { key: 'endTime', label: 'End time', type: 'time', hideWhen: f => f.allDay },
     { key: 'location', label: 'Location', type: 'text', placeholder: 'Room or link' },
   ],
   work: [
@@ -201,8 +202,12 @@ function formatTime(t) {
 function formatEntry(type, form) {
   const parts = [form.name];
   if (type === 'meeting') {
-    const times = [formatTime(form.startTime), formatTime(form.endTime)].filter(Boolean).join(' – ');
-    if (times) parts.push(times);
+    if (form.allDay) {
+      parts.push('All day');
+    } else {
+      const times = [formatTime(form.startTime), formatTime(form.endTime)].filter(Boolean).join(' – ');
+      if (times) parts.push(times);
+    }
     if (form.location?.trim()) parts.push(form.location.trim());
   } else {
     if (form.deadline) parts.push(`due ${formatTime(form.deadline)}`);
@@ -243,19 +248,30 @@ function TodoList({ title, type, items, checked, onToggle, onAdd }) {
       </ul>
       {showForm ? (
         <div className="todo-form" onKeyDown={handleKeyDown}>
-          {FIELDS[type].map(f => (
-            <div key={f.key} className="form-row">
-              <label className="form-label">{f.label}</label>
-              <input
-                className="form-input"
-                type={f.type}
-                placeholder={f.placeholder || ''}
-                value={form[f.key] || ''}
-                autoFocus={f.key === 'name'}
-                onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-              />
-            </div>
-          ))}
+          {FIELDS[type]
+            .filter(f => !f.hideWhen || !f.hideWhen(form))
+            .map(f => (
+              <div key={f.key} className={`form-row${f.type === 'checkbox' ? ' form-row-check' : ''}`}>
+                <label className="form-label">{f.label}</label>
+                {f.type === 'checkbox' ? (
+                  <input
+                    type="checkbox"
+                    className="form-checkbox"
+                    checked={!!form[f.key]}
+                    onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.checked }))}
+                  />
+                ) : (
+                  <input
+                    className="form-input"
+                    type={f.type}
+                    placeholder={f.placeholder || ''}
+                    value={form[f.key] || ''}
+                    autoFocus={f.key === 'name'}
+                    onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  />
+                )}
+              </div>
+            ))}
           <div className="form-actions">
             <button className="form-btn-add" onClick={handleSubmit}>Add</button>
             <button className="form-btn-cancel" onClick={() => { setShowForm(false); setForm({}); }}>Cancel</button>
@@ -448,15 +464,16 @@ function App() {
 
   function handleAddMeeting(form) {
     const today = getLocalYMD();
+    const isAllDay = !!form.allDay;
     setMeetings(prev => [...prev, {
       display: formatEntry('meeting', form),
       raw: {
         event_id: null,
         title: form.name,
-        start: form.startTime ? `${today}T${form.startTime}:00` : null,
-        end: form.endTime ? `${today}T${form.endTime}:00` : null,
+        start: isAllDay ? today : (form.startTime ? `${today}T${form.startTime}:00` : null),
+        end: isAllDay ? today : (form.endTime ? `${today}T${form.endTime}:00` : null),
         location: form.location || null,
-        is_all_day: false,
+        is_all_day: isAllDay,
       },
     }]);
   }

@@ -472,6 +472,20 @@ body {
   gap: 3px;
 }
 
+.form-row-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: #7c85ff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .form-label {
   font-size: 0.7rem;
   color: #6b7280;
