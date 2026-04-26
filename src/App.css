@@ -124,6 +124,11 @@ body {
   letter-spacing: 0.03em;
 }
 
+.app-logo {
+  height: 24px;
+  width: auto;
+}
+
 .app-tagline {
   font-size: 0.8rem;
   color: var(--text-dim);

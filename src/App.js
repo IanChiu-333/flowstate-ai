@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import './App.css';
+import flowstateLogo from './flowstate-logo.png';
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const HOUR_HEIGHT = 64;
@@ -554,6 +555,7 @@ function App() {
       {isSubmitting && <LoadingScreen />}
       <header className="top-bar">
         <span className="app-name">Flowstate</span>
+        <img src={flowstateLogo} alt="" className="app-logo" />
         <span className="app-tagline">Personal Secretary</span>
         <div className="top-bar-actions">
           {jwt ? (
