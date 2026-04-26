@@ -74,6 +74,7 @@ function DayCalendar({ jwt, onTodayEvents, externalRefreshKey }) {
       .then(r => r.json())
       .then(items => {
         const evts = Array.isArray(items) ? items : [];
+        console.log('Raw events from backend:', evts.map(e => ({ title: e.title, start: e.start, end: e.end })));
         setEvents(evts);
         if (date.toDateString() === today.toDateString()) onTodayEvents(evts);
       })
@@ -561,5 +562,3 @@ function App() {
 }
 
 export default App;
-
-// KEVIN COMMIT
