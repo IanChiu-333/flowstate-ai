@@ -341,6 +341,34 @@ function App() {
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [sidebarDate, setSidebarDate] = useState(new Date());
   const [prefs, setPrefs] = useState({ breakTime: 15, contextSwitch: true, burnout: 120, noWorkTimes: [] });
+  const [calPct, setCalPct] = useState(60);
+  const workspaceRef = useRef(null);
+  const dragging = useRef(false);
+
+  function handleDividerMouseDown(e) {
+    e.preventDefault();
+    dragging.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMouseMove(e) {
+      if (!dragging.current || !workspaceRef.current) return;
+      const rect = workspaceRef.current.getBoundingClientRect();
+      const pct = ((e.clientX - rect.left) / rect.width) * 100;
+      setCalPct(Math.min(Math.max(pct, 25), 75));
+    }
+
+    function onMouseUp() {
+      dragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    }
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
 
   // Handle OAuth callback (?code=...&state=...)
   useEffect(() => {
@@ -492,8 +520,8 @@ function App() {
         <SettingsModal prefs={prefs} onChange={handleSavePrefs} onClose={() => setShowSettings(false)} />
       )}
       <ToastNotification toast={toast} onDismiss={() => setToast(null)} />
-      <main className="workspace">
-        <section className="calendar-pane">
+      <main className="workspace" ref={workspaceRef}>
+        <section className="calendar-pane" style={{ flex: `0 0 ${calPct}%` }}>
           <div className="pane-header">Calendar</div>
           {jwt ? (
             <DayCalendar jwt={jwt} onTodayEvents={handleTodayEvents} externalRefreshKey={calendarRefreshKey} />
@@ -503,7 +531,8 @@ function App() {
             </div>
           )}
         </section>
-        <aside className="sidebar">
+        <div className="resize-handle" onMouseDown={handleDividerMouseDown} />
+        <aside className="sidebar" style={{ flex: `0 0 ${100 - calPct}%` }}>
           <div className="sidebar-date-label">
             {sidebarDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
           </div>
