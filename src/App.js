@@ -240,7 +240,13 @@ function FreeformTodos({ todos, onChange }) {
   );
 }
 
-function SettingsModal({ prefs, onChange, onClose }) {
+const THEMES = [
+  { id: 'midnight', label: 'Midnight', bg: '#0f1117', accent: '#7c85ff' },
+  { id: 'warm',     label: 'Warm',     bg: '#18140f', accent: '#f59e0b' },
+  { id: 'light',    label: 'Light',    bg: '#faf9f7', accent: '#6366f1' },
+];
+
+function SettingsModal({ prefs, onChange, onClose, theme, onThemeChange }) {
   const [local, setLocal] = useState(prefs);
 
   function setField(key, value) { setLocal(prev => ({ ...prev, [key]: value })); }
@@ -281,6 +287,25 @@ function SettingsModal({ prefs, onChange, onClose }) {
             </div>
             <input type="checkbox" checked={local.contextSwitch}
               onChange={e => setField('contextSwitch', e.target.checked)} />
+          </div>
+          <div className="settings-section">
+            <div className="settings-section-header">
+              <span>Appearance</span>
+            </div>
+            <div className="theme-picker">
+              {THEMES.map(t => (
+                <button
+                  key={t.id}
+                  className={`theme-option${theme === t.id ? ' theme-option-active' : ''}`}
+                  onClick={() => onThemeChange(t.id)}
+                >
+                  <span className="theme-swatch" style={{ background: t.bg, borderColor: t.accent }}>
+                    <span className="theme-swatch-dot" style={{ background: t.accent }} />
+                  </span>
+                  <span className="theme-option-label">{t.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
           <div className="settings-section">
             <div className="settings-section-header">
@@ -342,8 +367,14 @@ function App() {
   const [sidebarDate, setSidebarDate] = useState(new Date());
   const [prefs, setPrefs] = useState({ breakTime: 15, contextSwitch: true, burnout: 120, noWorkTimes: [] });
   const [calPct, setCalPct] = useState(50);
+  const [theme, setTheme] = useState(() => localStorage.getItem('flowstate_theme') || 'midnight');
   const workspaceRef = useRef(null);
   const dragging = useRef(false);
+
+  useEffect(() => {
+    document.body.className = theme === 'midnight' ? '' : `theme-${theme}`;
+    localStorage.setItem('flowstate_theme', theme);
+  }, [theme]);
 
   function handleDividerMouseDown(e) {
     e.preventDefault();
@@ -516,7 +547,7 @@ function App() {
         </div>
       </header>
       {showSettings && (
-        <SettingsModal prefs={prefs} onChange={handleSavePrefs} onClose={() => setShowSettings(false)} />
+        <SettingsModal prefs={prefs} onChange={handleSavePrefs} onClose={() => setShowSettings(false)} theme={theme} onThemeChange={setTheme} />
       )}
       <ToastNotification toast={toast} onDismiss={() => setToast(null)} />
       <main className="workspace" ref={workspaceRef}>
@@ -547,5 +578,3 @@ function App() {
 }
 
 export default App;
-
-//Kevin Changes
