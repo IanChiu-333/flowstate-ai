@@ -440,7 +440,7 @@ function App() {
       if (result !== null && typeof result === 'object' && !Array.isArray(result)) {
         setCalendarRefreshKey(k => k + 1);
         setTodos(['']);
-        setToast({ message: 'Your day has been optimized!', type: 'success' });
+        setToast({ message: result.message || 'Your day has been optimized!', type: 'success' });
       } else {
         // String response → Gemini needs clarification
         setToast({ message: typeof result === 'string' ? result : text, type: 'clarification' });
