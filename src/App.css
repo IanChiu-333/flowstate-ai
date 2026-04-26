@@ -794,23 +794,25 @@ body {
   border-bottom: 1px solid #2d3148;
   flex: 1;
   min-height: 0;
-  cursor: text;
 }
 
-.todos-panel .todo-title {
-  cursor: default;
+.todos-scroll {
+  flex: 1;
+  overflow-y: auto;
+  cursor: text;
+  scrollbar-width: thin;
+  scrollbar-color: #2d3148 transparent;
 }
+.todos-scroll::-webkit-scrollbar { width: 6px; }
+.todos-scroll::-webkit-scrollbar-track { background: transparent; }
+.todos-scroll::-webkit-scrollbar-thumb { background: #2d3148; border-radius: 3px; }
 
 .todos-list {
   list-style: none;
-  flex: 1;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 12px;
-  scrollbar-width: thin;
-  scrollbar-color: #2d3148 transparent;
+  padding-bottom: 12px;
 }
 
 .todos-item {

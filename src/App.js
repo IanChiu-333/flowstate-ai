@@ -196,30 +196,30 @@ function FreeformTodos({ todos, onChange }) {
     }
   }
 
-  function handlePanelClick(e) {
-    if (e.target.closest('.todos-item')) return;
-    addItem();
-  }
-
   return (
-    <div className="todos-panel" onClick={handlePanelClick}>
+    <div className="todos-panel">
       <h2 className="todo-title">To-dos</h2>
-      <ul className="todos-list">
-        {todos.map((todo, i) => (
-          <li key={i} className="todos-item">
-            <span className="todos-bullet" />
-            <input
-              ref={el => { inputRefs.current[i] = el; }}
-              className="todos-input"
-              type="text"
-              value={todo}
-              onChange={e => handleChange(i, e.target.value)}
-              onKeyDown={e => handleKeyDown(e, i)}
-              placeholder="Type a todo…"
-            />
-          </li>
-        ))}
-      </ul>
+      <div
+        className="todos-scroll"
+        onClick={e => { if (!e.target.closest('.todos-item')) addItem(); }}
+      >
+        <ul className="todos-list">
+          {todos.map((todo, i) => (
+            <li key={i} className="todos-item">
+              <span className="todos-bullet" />
+              <input
+                ref={el => { inputRefs.current[i] = el; }}
+                className="todos-input"
+                type="text"
+                value={todo}
+                onChange={e => handleChange(i, e.target.value)}
+                onKeyDown={e => handleKeyDown(e, i)}
+                placeholder="Type a todo…"
+              />
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
