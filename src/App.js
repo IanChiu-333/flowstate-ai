@@ -53,7 +53,7 @@ function layoutTimedEvents(events) {
   });
 }
 
-function DayCalendar({ jwt, onTodayEvents }) {
+function DayCalendar({ jwt, onTodayEvents, externalRefreshKey }) {
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -79,7 +79,7 @@ function DayCalendar({ jwt, onTodayEvents }) {
       })
       .catch(err => console.error('Calendar fetch failed', err))
       .finally(() => setLoading(false));
-  }, [jwt, date, refreshKey, today, onTodayEvents]);
+  }, [jwt, date, refreshKey, externalRefreshKey, today, onTodayEvents]);
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -178,15 +178,15 @@ function DayCalendar({ jwt, onTodayEvents }) {
 
 const FIELDS = {
   meeting: [
-    { key: 'name',      label: 'Name',      type: 'text', placeholder: 'Meeting name', required: true },
+    { key: 'name', label: 'Name', type: 'text', placeholder: 'Meeting name', required: true },
     { key: 'startTime', label: 'Start time', type: 'time' },
-    { key: 'endTime',   label: 'End time',   type: 'time' },
-    { key: 'location',  label: 'Location',   type: 'text', placeholder: 'Room or link' },
+    { key: 'endTime', label: 'End time', type: 'time' },
+    { key: 'location', label: 'Location', type: 'text', placeholder: 'Room or link' },
   ],
   work: [
-    { key: 'name',     label: 'Name',          type: 'text', placeholder: 'Task name', required: true },
-    { key: 'deadline', label: 'Deadline',       type: 'time' },
-    { key: 'estimate', label: 'Time estimate',  type: 'text', placeholder: 'e.g. 2h 30m' },
+    { key: 'name', label: 'Name', type: 'text', placeholder: 'Task name', required: true },
+    { key: 'deadline', label: 'Deadline', type: 'time' },
+    { key: 'estimate', label: 'Time estimate', type: 'text', placeholder: 'e.g. 2h 30m' },
   ],
 };
 
@@ -324,6 +324,18 @@ function SettingsModal({ prefs, onChange, onClose }) {
   );
 }
 
+function LoadingScreen() {
+  return (
+    <div className="loading-screen">
+      <div className="loading-card">
+        <div className="loading-spinner" />
+        <p className="loading-title">Optimizing your day</p>
+        <p className="loading-sub">Gemini is scheduling your tasks…</p>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [jwt, setJwt] = useState(() => localStorage.getItem('flowstate_jwt'));
   const [meetings, setMeetings] = useState([]); // [{ display, raw }]
@@ -331,6 +343,8 @@ function App() {
   const [checkedMeetings, setCheckedMeetings] = useState(new Set());
   const [checkedTasks, setCheckedTasks] = useState(new Set());
   const [showSettings, setShowSettings] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [prefs, setPrefs] = useState({ breakTime: 15, contextSwitch: 30, burnout: 120, noWorkTimes: [] });
 
   // Handle OAuth callback (?code=...&state=...)
@@ -371,7 +385,7 @@ function App() {
           noWorkTimes: data.no_work_time || [],
         });
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [jwt]);
 
   async function handleLogin() {
@@ -381,7 +395,7 @@ function App() {
   }
 
   async function handleLogout() {
-    if (jwt) await api('/auth/logout', { method: 'POST' }, jwt).catch(() => {});
+    if (jwt) await api('/auth/logout', { method: 'POST' }, jwt).catch(() => { });
     localStorage.removeItem('flowstate_jwt');
     setJwt(null);
     setMeetings([]);
@@ -450,6 +464,7 @@ function App() {
 
   async function handleSubmit() {
     if (!jwt) return;
+    setIsSubmitting(true);
     const today = getLocalYMD();
     const payload = {
       date: today,
@@ -466,6 +481,7 @@ function App() {
     try {
       const res = await api('/schedule/process', { method: 'POST', body: JSON.stringify(payload) }, jwt);
       const result = await res.json();
+      
       if (!res.ok) {
         let errMsg = result.detail || 'An unknown error occurred';
         if (Array.isArray(result.detail)) {
@@ -474,17 +490,23 @@ function App() {
         alert(`Failed to submit schedule:\n${errMsg}`);
         return;
       }
+      
       console.log('Schedule result:', result);
+      setCalendarRefreshKey(k => k + 1);
       alert('Schedule processed successfully!');
     } catch (err) {
       console.error('Submit failed', err);
       alert(`Submit failed: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   const meetingItems = meetings.length > 0
     ? meetings.map(m => m.display)
     : jwt ? ['No meetings today'] : ['Sign in to load meetings'];
+
+  if (isSubmitting) return <LoadingScreen />;
 
   return (
     <div className="app-shell">
@@ -506,7 +528,7 @@ function App() {
         <section className="calendar-pane">
           <div className="pane-header">Calendar</div>
           {jwt ? (
-            <DayCalendar jwt={jwt} onTodayEvents={handleTodayEvents} />
+            <DayCalendar jwt={jwt} onTodayEvents={handleTodayEvents} externalRefreshKey={calendarRefreshKey} />
           ) : (
             <div className="calendar-placeholder">
               <p>Sign in with Google to view your calendar</p>
