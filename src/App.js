@@ -504,9 +504,7 @@ function App() {
     }
   }
 
-  const meetingItems = meetings.length > 0
-    ? meetings.map(m => m.display)
-    : jwt ? ['No meetings today'] : ['Sign in to load meetings'];
+  const meetingItems = meetings.map(m => m.display);
 
   if (isSubmitting) return <LoadingScreen />;
 
