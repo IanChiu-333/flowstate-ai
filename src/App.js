@@ -490,15 +490,10 @@ function App() {
       if (e.is_all_day) return `${e.title} all day`;
       const start = new Date(e.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       const end = new Date(e.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      const base = `${e.title} at ${start} to ${end}`;
-      const people = e.attendees
-        ?.filter(a => !a.self)
-        .map(a => a.displayName || a.email?.split('@')[0])
-        .filter(Boolean);
-      const suffix = people?.length
-        ? ` with ${people.join(', ')}`
-        : e.location?.trim() ? ` at ${e.location.trim()}` : '';
-      return base + suffix;
+      let str = `${e.title} at ${start} to ${end}`;
+      if (e.location?.trim()) str += ` at ${e.location.trim()}`;
+      if (e.attendees?.length) str += ` with ${e.attendees.join(', ')}`;
+      return str;
     });
     setTodos(formatted.length > 0 ? [...formatted, ''] : ['']);
   }, []);
