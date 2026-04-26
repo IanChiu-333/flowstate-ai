@@ -501,10 +501,9 @@ function App() {
     }
   }
 
-  if (isSubmitting) return <LoadingScreen />;
-
   return (
     <div className="app-shell">
+      {isSubmitting && <LoadingScreen />}
       <header className="top-bar">
         <span className="app-name">Flowstate</span>
         <span className="app-tagline">Personal Secretary</span>
