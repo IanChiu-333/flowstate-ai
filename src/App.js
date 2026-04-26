@@ -288,7 +288,6 @@ function SettingsModal({ prefs, onChange, onClose }) {
         <div className="settings-body">
           {[
             { key: 'breakTime', label: 'Break time', hint: 'minutes between sessions' },
-            { key: 'contextSwitch', label: 'Context switching', hint: 'minimum time per task' },
             { key: 'burnout', label: 'Burnout limit', hint: 'maximum focus time' },
           ].map(({ key, label, hint }) => (
             <div key={key} className="settings-row">
@@ -303,6 +302,14 @@ function SettingsModal({ prefs, onChange, onClose }) {
               </div>
             </div>
           ))}
+          <div className="settings-row">
+            <div className="settings-label">
+              <span>Context switching</span>
+              <span className="settings-hint">group tasks to avoid interruptions</span>
+            </div>
+            <input type="checkbox" checked={local.contextSwitch}
+              onChange={e => setField('contextSwitch', e.target.checked)} />
+          </div>
           <div className="settings-section">
             <div className="settings-section-header">
               <span>No-work times</span>
@@ -348,7 +355,7 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [sidebarDate, setSidebarDate] = useState(new Date());
-  const [prefs, setPrefs] = useState({ breakTime: 15, contextSwitch: 30, burnout: 120, noWorkTimes: [] });
+  const [prefs, setPrefs] = useState({ breakTime: 15, contextSwitch: true, burnout: 120, noWorkTimes: [] });
 
   // Handle OAuth callback (?code=...&state=...)
   useEffect(() => {
@@ -412,7 +419,7 @@ function App() {
       method: 'PUT',
       body: JSON.stringify({
         break_time: parseInt(newPrefs.breakTime) || 0,
-        context_switch: parseInt(newPrefs.contextSwitch) || 0,
+        context_switch: Boolean(newPrefs.contextSwitch),
         burnout: parseInt(newPrefs.burnout) || 0,
         no_work_time: newPrefs.noWorkTimes.filter(t => t.start && t.end),
       }),
@@ -478,7 +485,7 @@ function App() {
       tasks: tasks.filter((_, i) => !checkedTasks.has(i)).map(t => t.raw),
       preferences: {
         break_time: parseInt(prefs.breakTime) || 0,
-        context_switch: parseInt(prefs.contextSwitch) || 0,
+        context_switch: Boolean(prefs.contextSwitch),
         burnout: parseInt(prefs.burnout) || 0,
         no_work_time: prefs.noWorkTimes.filter(t => t.start && t.end),
       },
