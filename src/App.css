@@ -119,6 +119,16 @@ body {
   font-size: 0.9rem;
 }
 
+.sidebar-date-label {
+  padding: 10px 16px 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
 /* ── Day Calendar ── */
 .day-cal {
   flex: 1;

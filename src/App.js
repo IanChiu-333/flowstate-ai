@@ -77,7 +77,7 @@ function DayCalendar({ jwt, onTodayEvents, externalRefreshKey }) {
         const evts = Array.isArray(items) ? items : [];
         console.log('Raw events from backend:', evts.map(e => ({ title: e.title, start: e.start, end: e.end })));
         setEvents(evts);
-        if (date.toDateString() === today.toDateString()) onTodayEvents(evts);
+        onTodayEvents(evts, date);
       })
       .catch(err => console.error('Calendar fetch failed', err))
       .finally(() => setLoading(false));
@@ -347,6 +347,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
+  const [sidebarDate, setSidebarDate] = useState(new Date());
   const [prefs, setPrefs] = useState({ breakTime: 15, contextSwitch: 30, burnout: 120, noWorkTimes: [] });
 
   // Handle OAuth callback (?code=...&state=...)
@@ -418,14 +419,16 @@ function App() {
     }, jwt).catch(err => console.error('Prefs save failed', err));
   }
 
-  const handleTodayEvents = useCallback((items) => {
+  const handleTodayEvents = useCallback((items, date) => {
+    setSidebarDate(date);
     setMeetings(items
-      .filter(e => !e.is_all_day)
+      .filter(e => !e.is_all_day && e.start.includes('T'))
       .map(e => ({
         display: `${e.title} — ${new Date(e.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
         raw: e,
       }))
     );
+    setCheckedMeetings(new Set());
   }, []);
 
   function toggle(setChecked) {
@@ -536,15 +539,18 @@ function App() {
           )}
         </section>
         <aside className="sidebar">
+          <div className="sidebar-date-label">
+            {sidebarDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+          </div>
           <TodoList
-            type="meeting" title="Meetings"
+            type="meeting" title="Events"
             items={meetingItems}
             checked={checkedMeetings}
             onToggle={toggle(setCheckedMeetings)}
             onAdd={handleAddMeeting}
           />
           <TodoList
-            type="work" title="Deep Work"
+            type="work" title="Tasks"
             items={tasks.map(t => t.display)}
             checked={checkedTasks}
             onToggle={toggle(setCheckedTasks)}
