@@ -2,7 +2,7 @@
 
 **Flowstate** is an AI-powered personal secretary that transforms your messy todo list into a perfectly structured Google Calendar schedule. By leveraging the power of Google AI (Gemini/Gemma), it intelligently negotiates your constraints, preferences, and existing commitments to find the flow in your day.
 
-![Flowstate Preview](https://www.flowstate-calendar.work/)
+[Flowstate Preview](https://www.flowstate-calendar.work/)
 
 ## 🌟 Features
 
