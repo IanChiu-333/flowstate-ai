@@ -22,6 +22,13 @@ function parseEstimate(str) {
   return mins > 0 ? mins : null;
 }
 
+function getLocalYMD(d = new Date()) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function layoutTimedEvents(events) {
   const sorted = [...events].sort((a, b) => new Date(a.start) - new Date(b.start));
   const columns = [];
@@ -62,7 +69,7 @@ function DayCalendar({ jwt, onTodayEvents }) {
   useEffect(() => {
     if (!jwt) return;
     setLoading(true);
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = getLocalYMD(date);
     api(`/calendar/events?date=${dateStr}`, {}, jwt)
       .then(r => r.json())
       .then(items => {
@@ -414,7 +421,7 @@ function App() {
   }
 
   function handleAddMeeting(form) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalYMD();
     setMeetings(prev => [...prev, {
       display: formatEntry('meeting', form),
       raw: {
@@ -429,7 +436,7 @@ function App() {
   }
 
   function handleAddTask(form) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalYMD();
     setTasks(prev => [...prev, {
       display: formatEntry('work', form),
       raw: {
@@ -443,9 +450,10 @@ function App() {
 
   async function handleSubmit() {
     if (!jwt) return;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalYMD();
     const payload = {
       date: today,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       events: meetings.filter((_, i) => !checkedMeetings.has(i)).map(m => m.raw).filter(Boolean),
       tasks: tasks.filter((_, i) => !checkedTasks.has(i)).map(t => t.raw),
       preferences: {
