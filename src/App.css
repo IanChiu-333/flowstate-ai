@@ -124,13 +124,25 @@ body {
   letter-spacing: 0.03em;
 }
 
+.app-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-brand-top {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
 .app-logo {
-  height: 24px;
+  height: 20px;
   width: auto;
 }
 
 .app-tagline {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.08em;

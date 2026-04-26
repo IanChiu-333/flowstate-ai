@@ -554,9 +554,13 @@ function App() {
     <div className="app-shell">
       {isSubmitting && <LoadingScreen />}
       <header className="top-bar">
-        <span className="app-name">Flowstate</span>
-        <img src={flowstateLogo} alt="" className="app-logo" />
-        <span className="app-tagline">Personal Secretary</span>
+        <div className="app-brand">
+          <div className="app-brand-top">
+            <img src={flowstateLogo} alt="" className="app-logo" />
+            <span className="app-name">Flowstate</span>
+          </div>
+          <span className="app-tagline">Personal Secretary</span>
+        </div>
         <div className="top-bar-actions">
           {jwt ? (
             <button className="auth-btn signout" onClick={handleLogout}>Sign out</button>
