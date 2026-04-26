@@ -796,23 +796,54 @@ body {
   min-height: 0;
 }
 
-.todos-textarea {
+.todos-list {
+  list-style: none;
   flex: 1;
-  resize: none;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #2d3148 transparent;
+}
+
+.todos-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
   background: #1a1d27;
   border: 1px solid #2d3148;
   border-radius: 8px;
+  transition: border-color 0.15s;
+}
+.todos-item:focus-within {
+  border-color: #7c85ff;
+  background: #1e2135;
+}
+
+.todos-bullet {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4b5563;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.todos-item:focus-within .todos-bullet { background: #7c85ff; }
+
+.todos-input {
+  flex: 1;
+  background: transparent;
+  border: none;
   color: #d1d5db;
   font-family: inherit;
   font-size: 0.85rem;
-  line-height: 1.7;
-  padding: 10px 12px;
   outline: none;
-  transition: border-color 0.15s;
-  min-height: 0;
+  min-width: 0;
 }
-.todos-textarea:focus { border-color: #7c85ff; }
-.todos-textarea::placeholder { color: #4b5563; }
+.todos-input::placeholder { color: #4b5563; }
 
 /* ── Clarification popup ── */
 .clarification-popup {

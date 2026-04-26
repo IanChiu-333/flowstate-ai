@@ -168,16 +168,54 @@ function DayCalendar({ jwt, onTodayEvents, externalRefreshKey }) {
 }
 
 function FreeformTodos({ todos, onChange }) {
+  const inputRefs = useRef([]);
+
+  function handleChange(i, value) {
+    const next = [...todos];
+    next[i] = value;
+    onChange(next);
+  }
+
+  function handleKeyDown(e, i) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const next = [...todos];
+      next.splice(i + 1, 0, '');
+      onChange(next);
+      setTimeout(() => inputRefs.current[i + 1]?.focus(), 0);
+    } else if (e.key === 'Backspace' && todos[i] === '' && todos.length > 1) {
+      e.preventDefault();
+      const next = todos.filter((_, idx) => idx !== i);
+      onChange(next);
+      setTimeout(() => inputRefs.current[Math.max(0, i - 1)]?.focus(), 0);
+    }
+  }
+
+  function addItem() {
+    onChange([...todos, '']);
+    setTimeout(() => inputRefs.current[todos.length]?.focus(), 0);
+  }
+
   return (
     <div className="todos-panel">
       <h2 className="todo-title">To-dos</h2>
-      <textarea
-        className="todos-textarea"
-        value={todos}
-        onChange={e => onChange(e.target.value)}
-        placeholder="Type your todos, one per line…"
-        spellCheck={false}
-      />
+      <ul className="todos-list">
+        {todos.map((todo, i) => (
+          <li key={i} className="todos-item">
+            <span className="todos-bullet" />
+            <input
+              ref={el => { inputRefs.current[i] = el; }}
+              className="todos-input"
+              type="text"
+              value={todo}
+              onChange={e => handleChange(i, e.target.value)}
+              onKeyDown={e => handleKeyDown(e, i)}
+              placeholder="Type a todo…"
+            />
+          </li>
+        ))}
+      </ul>
+      <button className="todo-add-btn" onClick={addItem}>+ Add item</button>
     </div>
   );
 }
@@ -274,7 +312,7 @@ function ClarificationNotification({ message, onDismiss }) {
 
 function App() {
   const [jwt, setJwt] = useState(() => localStorage.getItem('flowstate_jwt'));
-  const [todos, setTodos] = useState('');
+  const [todos, setTodos] = useState(['']);
   const [clarification, setClarification] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -333,7 +371,7 @@ function App() {
     if (jwt) await api('/auth/logout', { method: 'POST' }, jwt).catch(() => { });
     localStorage.removeItem('flowstate_jwt');
     setJwt(null);
-    setTodos('');
+    setTodos(['']);
   }
 
   async function handleSavePrefs(newPrefs) {
@@ -350,13 +388,21 @@ function App() {
     }, jwt).catch(err => console.error('Prefs save failed', err));
   }
 
-  const handleTodayEvents = useCallback((_items, date) => {
+  const handleTodayEvents = useCallback((items, date) => {
     setSidebarDate(date);
+    const formatted = items.map(e => {
+      if (e.is_all_day) return `"${e.title}" all day`;
+      const start = new Date(e.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const end = new Date(e.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const base = `"${e.title}" at ${start} to ${end}`;
+      return e.location?.trim() ? `${base} with ${e.location.trim()}` : base;
+    });
+    setTodos(formatted.length > 0 ? [...formatted, ''] : ['']);
   }, []);
 
   async function handleSubmit() {
     if (!jwt) return;
-    const todoList = todos.split('\n').map(t => t.trim()).filter(Boolean);
+    const todoList = todos.map(t => t.trim()).filter(Boolean);
     if (todoList.length === 0) return;
     setIsSubmitting(true);
     const payload = {
@@ -393,7 +439,7 @@ function App() {
       if (result !== null && typeof result === 'object' && !Array.isArray(result)) {
         // JSON object → success, schedule was processed
         setCalendarRefreshKey(k => k + 1);
-        setTodos('');
+        setTodos(['']);
       } else {
         // String response → Gemini needs clarification
         setClarification(typeof result === 'string' ? result : text);
