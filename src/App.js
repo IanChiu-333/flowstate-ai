@@ -170,12 +170,22 @@ function DayCalendar({ jwt, onTodayEvents, externalRefreshKey }) {
 function FreeformTodos({ todos, onChange }) {
   const inputRefs = useRef([]);
 
-  function addItem() {
-    onChange([...todos, '']);
-    setTimeout(() => inputRefs.current[todos.length]?.focus(), 0);
+  function resize(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
   }
 
-  function handleChange(i, value) {
+  function addItem() {
+    onChange([...todos, '']);
+    setTimeout(() => {
+      const el = inputRefs.current[todos.length];
+      if (el) { el.focus(); resize(el); }
+    }, 0);
+  }
+
+  function handleChange(i, value, el) {
+    resize(el);
     const next = [...todos];
     next[i] = value;
     onChange(next);
@@ -187,12 +197,18 @@ function FreeformTodos({ todos, onChange }) {
       const next = [...todos];
       next.splice(i + 1, 0, '');
       onChange(next);
-      setTimeout(() => inputRefs.current[i + 1]?.focus(), 0);
+      setTimeout(() => {
+        const el = inputRefs.current[i + 1];
+        if (el) { el.focus(); resize(el); }
+      }, 0);
     } else if (e.key === 'Backspace' && todos[i] === '' && todos.length > 1) {
       e.preventDefault();
       const next = todos.filter((_, idx) => idx !== i);
       onChange(next);
-      setTimeout(() => inputRefs.current[Math.max(0, i - 1)]?.focus(), 0);
+      setTimeout(() => {
+        const el = inputRefs.current[Math.max(0, i - 1)];
+        if (el) { el.focus(); resize(el); }
+      }, 0);
     }
   }
 
@@ -207,12 +223,12 @@ function FreeformTodos({ todos, onChange }) {
           {todos.map((todo, i) => (
             <li key={i} className="todos-item">
               <span className="todos-bullet" />
-              <input
-                ref={el => { inputRefs.current[i] = el; }}
+              <textarea
+                ref={el => { inputRefs.current[i] = el; if (el) resize(el); }}
                 className="todos-input"
-                type="text"
+                rows={1}
                 value={todo}
-                onChange={e => handleChange(i, e.target.value)}
+                onChange={e => handleChange(i, e.target.value, e.target)}
                 onKeyDown={e => handleKeyDown(e, i)}
                 placeholder="Type a todo…"
               />
