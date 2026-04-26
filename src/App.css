@@ -794,6 +794,11 @@ body {
   border-bottom: 1px solid #2d3148;
   flex: 1;
   min-height: 0;
+  cursor: text;
+}
+
+.todos-panel .todo-title {
+  cursor: default;
 }
 
 .todos-list {

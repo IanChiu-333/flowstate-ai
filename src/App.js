@@ -196,8 +196,13 @@ function FreeformTodos({ todos, onChange }) {
     }
   }
 
+  function handlePanelClick(e) {
+    if (e.target.closest('.todos-item')) return;
+    addItem();
+  }
+
   return (
-    <div className="todos-panel">
+    <div className="todos-panel" onClick={handlePanelClick}>
       <h2 className="todo-title">To-dos</h2>
       <ul className="todos-list">
         {todos.map((todo, i) => (
@@ -215,7 +220,6 @@ function FreeformTodos({ todos, onChange }) {
           </li>
         ))}
       </ul>
-      <div className="todos-click-zone" onClick={addItem} />
     </div>
   );
 }
@@ -393,10 +397,10 @@ function App() {
   const handleTodayEvents = useCallback((items, date) => {
     setSidebarDate(date);
     const formatted = items.map(e => {
-      if (e.is_all_day) return `"${e.title}" all day`;
+      if (e.is_all_day) return `${e.title} all day`;
       const start = new Date(e.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       const end = new Date(e.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      const base = `"${e.title}" at ${start} to ${end}`;
+      const base = `${e.title} at ${start} to ${end}`;
       return e.location?.trim() ? `${base} with ${e.location.trim()}` : base;
     });
     setTodos(formatted.length > 0 ? [...formatted, ''] : ['']);
