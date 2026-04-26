@@ -93,8 +93,21 @@ function DayCalendar({ jwt, onTodayEvents, externalRefreshKey }) {
   function eventStyle(e) {
     const start = new Date(e.start);
     const end = new Date(e.end);
-    const startMins = start.getHours() * 60 + start.getMinutes();
-    const endMins = end.getHours() * 60 + end.getMinutes();
+
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(24, 0, 0, 0);
+
+    const effectiveStart = new Date(Math.max(start, dayStart));
+    const effectiveEnd = new Date(Math.min(end, dayEnd));
+
+    const startMins = effectiveStart.getHours() * 60 + effectiveStart.getMinutes();
+    let endMins = effectiveEnd.getHours() * 60 + effectiveEnd.getMinutes();
+    if (effectiveEnd.getTime() === dayEnd.getTime()) {
+      endMins = 24 * 60;
+    }
+
     return {
       top: `${(startMins - START_HOUR * 60) * (HOUR_HEIGHT / 60)}px`,
       height: `${Math.max((endMins - startMins) * (HOUR_HEIGHT / 60), 24)}px`,
