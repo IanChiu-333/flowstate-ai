@@ -491,7 +491,14 @@ function App() {
       const start = new Date(e.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       const end = new Date(e.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       const base = `${e.title} at ${start} to ${end}`;
-      return e.location?.trim() ? `${base} with ${e.location.trim()}` : base;
+      const people = e.attendees
+        ?.filter(a => !a.self)
+        .map(a => a.displayName || a.email?.split('@')[0])
+        .filter(Boolean);
+      const suffix = people?.length
+        ? ` with ${people.join(', ')}`
+        : e.location?.trim() ? ` at ${e.location.trim()}` : '';
+      return base + suffix;
     });
     setTodos(formatted.length > 0 ? [...formatted, ''] : ['']);
   }, []);
