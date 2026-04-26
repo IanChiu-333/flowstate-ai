@@ -761,3 +761,45 @@ body {
   transition: background 0.15s;
 }
 .settings-save:hover { background: #636cff; }
+
+/* ── Loading screen ── */
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  background: #0f1117;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid #2d3148;
+  border-top-color: #7c85ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.loading-sub {
+  font-size: 0.85rem;
+  color: #4b5563;
+}
