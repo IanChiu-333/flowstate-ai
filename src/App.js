@@ -341,7 +341,7 @@ function App() {
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [sidebarDate, setSidebarDate] = useState(new Date());
   const [prefs, setPrefs] = useState({ breakTime: 15, contextSwitch: true, burnout: 120, noWorkTimes: [] });
-  const [calPct, setCalPct] = useState(60);
+  const [calPct, setCalPct] = useState(50);
   const workspaceRef = useRef(null);
   const dragging = useRef(false);
 
